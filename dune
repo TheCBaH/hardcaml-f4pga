@@ -1,6 +1,5 @@
 (executable
- (name basys3)
- (modules basys3)
- (libraries clock hardcaml hardcaml_waveterm)
+ (name main)
+ (libraries rtl hardcaml hardcaml_waveterm)
  (preprocess
   (pps ppx_jane ppx_deriving_hardcaml)))

@@ -2,8 +2,8 @@
 default:
 	opam exec dune build
 
-basys3:
-	opam exec dune exec ./basys3.exe
+rtl:
+	opam exec dune exec ./main.exe
 
 format:
 	opam exec dune fmt
@@ -26,9 +26,7 @@ F4PGA_VERSION=a5a44fa0c585783dcc1c6be32e88613be800287b
 ${COMMON.MK}:
 	curl --fail --location --show-error -o $@ https://raw.githubusercontent.com/chipsalliance/f4pga-examples/${F4PGA_VERSION}/common/$(notdir $@)
 
-basys3.design: basys3
-
-%.design: ${COMMON.MK}
+%.design: ${COMMON.MK} rtl
 	rm -rf build
 	set -eu;. ${F4PGA_INSTALL_DIR}/${FPGA_FAM}/conda/etc/profile.d/conda.sh;\
 	 conda activate ${FPGA_FAM};${MAKE} -f ${COMMON.MK}\

@@ -1,7 +1,6 @@
 open Hardcaml
 (*
 #require "ppx_jane";;
-#require "ppx_deriving.std";;
 #require "ppx_deriving_hardcaml";;
 *)
 
