@@ -1,0 +1,21 @@
+(executable
+ (name main)
+ (libraries
+  rtl
+  hardcaml
+  hardcaml_verilator
+  hardcaml_waveterm
+  hardcaml_waveterm.interactive)
+ (preprocess
+  (pps ppx_compare ppx_deriving_hardcaml)))
+
+(toplevel
+ (name hardcaml)
+ (libraries
+  rtl
+  hardcaml
+  hardcaml_verilator
+  hardcaml_waveterm
+  hardcaml_waveterm.interactive)
+ (preprocess
+  (pps ppx_jane ppx_deriving_hardcaml)))
