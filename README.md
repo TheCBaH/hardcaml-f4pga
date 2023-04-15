@@ -7,4 +7,6 @@ Devcontainer to create development environment for hardcaml that uses F4FPGA too
 ## Get started
 * [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=628173356)
 * run
-
+  * `.devcontainer/with_swap.sh` to add swap (needed by fasm)
+  * `make basys3` build verilog files
+  * `make basys3.design` synthesize FPGA .bit file

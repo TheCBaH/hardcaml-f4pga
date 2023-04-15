@@ -9,6 +9,7 @@
         "picorv",
         "picosoc",
         "thecbah",
+        "verilog",
         "vexriscv"
     ],
     "ocaml.sandbox": {
