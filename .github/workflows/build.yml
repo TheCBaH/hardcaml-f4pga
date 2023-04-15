@@ -19,7 +19,7 @@ jobs:
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
     - name: hardcaml
       run: |
-        make main
+        ${{ env.EXEC }} make main
     - name: f4pga
       run: |
-        make design
+        ${{ env.EXEC }} make design
