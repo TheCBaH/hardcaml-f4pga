@@ -45,7 +45,7 @@ let pulse_test =
   cycles 1;
   clear _reset;
   cycles 5;
-  Hardcaml_waveterm.Waveform.print ~display_height:10 ~display_width:80 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:8 ~display_width:80 ~wave_width:0 waves
 
 let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
   let base_bits = Base.Int.ceil_log2 base in
