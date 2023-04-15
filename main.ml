@@ -1,4 +1,9 @@
 open Hardcaml
+(*
+#require "ppx_jane";;
+#require "ppx_deriving.std";;
+#require "ppx_deriving_hardcaml";;
+*)
 
 let pulse ~reset ~clock ~length =
   assert (length > 0);
@@ -92,9 +97,7 @@ let counter_with_carry_test_1 =
   cycles 4;
   Cyclesim.in_port sim _reset := Bits.gnd;
   cycles 7;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves;
-  let output_mode = Rtl.Output_mode.To_file "counter.v" in
-  Rtl.output ~output_mode Verilog circuit
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
 
 let counter_with_carry_test_2 =
   let _clock = "clock" in
@@ -136,7 +139,7 @@ let counter_with_carry_test_2 =
 
 type clock = { clock : int; wire : Signal.t }
 
-let clock_gen ~target ~reset ~clock =
+let trigger_gen ~target ~reset ~clock =
   let divider = clock.clock / target in
   let limit = divider - 1 in
   let bits = Base.Int.ceil_log2 divider in
@@ -148,13 +151,13 @@ let clock_gen ~target ~reset ~clock =
   count <== reg spec next;
   pulse
 
-let clock_gen_test =
+let trigger_gen_test =
   let _clock = "clock" in
   let _reset = "_reset" in
   let clock = { clock = 10; wire = Signal.input _clock 1 } in
   let reset = Signal.input _reset 1 in
-  let pulse = clock_gen ~clock ~reset ~target:2 in
-  let circuit = Circuit.create_exn ~name:"clock_gen" [ Signal.output "pulse" pulse ] in
+  let pulse = trigger_gen ~clock ~reset ~target:2 in
+  let circuit = Circuit.create_exn ~name:"trigger_gen" [ Signal.output "pulse" pulse ] in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let set wire = Cyclesim.in_port sim wire := Bits.vdd in
   let clear wire = Cyclesim.in_port sim wire := Bits.gnd in
@@ -309,7 +312,7 @@ let multi_counter_test =
 
 let clock_top ~clock ~reset ~refresh ~tick =
   let open Signal in
-  let tick = clock_gen ~clock ~reset ~target:tick in
+  let tick = trigger_gen ~clock ~reset ~target:tick in
   let digits = multi_counter ~increment:tick ~clock:clock.wire ~reset ~digits:4 () in
   let digits =
     List.mapi
@@ -318,7 +321,7 @@ let clock_top ~clock ~reset ~refresh ~tick =
         { data = d; enable = vdd; dot })
       digits
   in
-  let refresh = clock_gen ~clock ~reset ~target:refresh in
+  let refresh = trigger_gen ~clock ~reset ~target:refresh in
   let anode, segment = display ~clock:clock.wire ~digits ~reset ~next:refresh in
   (anode, segment)
 
@@ -358,6 +361,7 @@ module Reset = struct
   let hierarchical scope input =
     let module H = Hierarchy.In_scope (I) (O) in
     H.hierarchical ~scope ~name:"reset" create input
+
 end
 
 module Clock = struct
