@@ -1,0 +1,18 @@
+{
+    "cSpell.words": [
+        "basys",
+        "devcontainer",
+        "devel",
+        "esac",
+        "hardcaml",
+        "litex",
+        "picorv",
+        "picosoc",
+        "thecbah",
+        "vexriscv"
+    ],
+    "ocaml.sandbox": {
+        "kind": "opam",
+        "switch": "default"
+    }
+}

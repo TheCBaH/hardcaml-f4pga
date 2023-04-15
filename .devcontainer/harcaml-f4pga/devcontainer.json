@@ -1,0 +1,17 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+    "name": "hardcaml-f4pga examples (prebuild)",
+    "image": "ghcr.io/thecbah/hardcaml-f4pga/devcontainer:devel",
+    "runArgs": [ "--init", "--privileged" ], // For openFPGALoader
+    "mounts": [
+        "source=/dev/,target=/dev/,type=bind,consistency=cached"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "mshr-h.veriloghdl",
+                "ocamllabs.ocaml-platform"
+            ]
+        }
+    }
+}

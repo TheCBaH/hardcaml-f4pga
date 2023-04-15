@@ -1,0 +1,16 @@
+{
+    "name": "F4FPGA toolchains",
+    "id": "F4FPGA",
+    "version": "0.0.1",
+    "description": "Install F4FPGA toolchains",
+    "options": {
+        "target": {
+            "type": "string",
+            "default": "",
+            "description": "target board"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}

@@ -1,0 +1,35 @@
+// For format details, see https://aka.ms/devcontainer.json.
+{
+    "name": "F4FPGA examples",
+    "runArgs": ["--init", "--privileged"], // to enable swapon command
+    "mounts": [
+        "source=/dev/,target=/dev/,type=bind,consistency=cached"
+    ],
+    "build":  {
+        "dockerfile": "Dockerfile",
+        "cacheFrom": [
+            "ghcr.io/thecbah/hardcaml-f4fpga/devcontainer:devel",
+            "ghcr.io/thecbah/fpga_example/devcontainer:master"
+        ]
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {
+            "installZsh": "true",
+            "username": "vscode",
+            "userUid": "1000",
+            "userGid": "1000",
+            "upgradePackages": "false"
+        },
+        "./features/f4fpga": { },
+        "./features/hardcaml": { }
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "mshr-h.veriloghdl",
+                "ocamllabs.ocaml-platform"
+            ]
+        }
+    },
+    "remoteUser": "vscode"
+}

@@ -1,0 +1,16 @@
+{
+    "name": "hardcaml toolchains",
+    "id": "hardcaml",
+    "version": "0.0.1",
+    "description": "Install hardcaml toolchains",
+    "options": {
+        "packages": {
+            "type": "string",
+            "default": "",
+            "description": "additional packages"
+        }
+    },
+    "installsAfter": [
+        "ghcr.io/devcontainers/features/common-utils"
+    ]
+}
