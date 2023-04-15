@@ -1,6 +1,6 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
-    "name": "hardcaml-f4pga examples (prebuild)",
+    "name": "hardcaml-f4pga (prebuild)",
     "image": "ghcr.io/thecbah/hardcaml-f4pga/devcontainer:devel",
     "runArgs": [ "--init", "--privileged" ], // For openFPGALoader
     "mounts": [
