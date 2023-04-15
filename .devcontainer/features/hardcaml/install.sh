@@ -6,7 +6,7 @@ echo "Activating feature 'HARDCAML'"
 
 PACKAGES=${PACKAGES:-$@}
 OCAML_VERSION=${OCAML_VERSION:-4.14.1}
-echo "Selected packages: $PACKAGES "
+echo "Selected ocaml:$OCAML_VERSION packages: $PACKAGES "
 
 # From https://github.com/devcontainers/features/blob/main/src/git/install.sh
 apt_get_update()
@@ -81,7 +81,7 @@ check_packages\
 
 opam init --no-setup --disable-sandboxing --bare
 eval $(opam env)
-opam switch create ${OCAML_VERSION}
+opam switch create $OCAML_VERSION
 opam install -y depext
 PACKAGES="\
  dune\
