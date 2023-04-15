@@ -5,7 +5,7 @@ set -x
 echo "Activating feature 'HARDCAML'"
 
 PACKAGES=${PACKAGES:-$@}
-OCAML_VERSION=${OCAML_VERSION:-}
+OCAML_VERSION=${OCAML_VERSION:-4.14.1}
 echo "Selected packages: $PACKAGES "
 
 # From https://github.com/devcontainers/features/blob/main/src/git/install.sh
