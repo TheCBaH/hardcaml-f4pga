@@ -1,0 +1,6 @@
+(library
+ (name rtl)
+ (wrapped false)
+ (libraries hardcaml hardcaml_waveterm)
+ (preprocess
+  (pps ppx_jane ppx_deriving_hardcaml)))

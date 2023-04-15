@@ -1,0 +1,21 @@
+{
+    "cSpell.words": [
+        "basys",
+        "devcontainer",
+        "devel",
+        "esac",
+        "hardcaml",
+        "litex",
+        "picorv",
+        "picosoc",
+        "thecbah",
+        "verilog",
+        "vexriscv"
+    ],
+    "ocaml.repl.path": "make",
+    "ocaml.repl.args": ["utop"],
+    "ocaml.sandbox": {
+        "kind": "opam",
+        "switch": "default"
+    }
+}

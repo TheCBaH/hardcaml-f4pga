@@ -1,0 +1,32 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    - name: devcontainer
+      uses: ./.github/workflows/actions/devcontainer
+      id: devcontainer
+    - name: setup
+      run: |
+        echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
+    - name: hardcaml
+      run: |
+        ${{ env.EXEC }} make rtl
+    - name: hardcaml utop
+      run: |
+        ${{ env.EXEC }} sh -ceux "echo '#use \"src/util.ml\";;' | make utop | tee log.utop"
+        grep hierarchical log.utop
+    - name: f4pga basys3
+      run: |
+        ${{ env.EXEC }} make basys3.design
+    - name: f4pga art_35
+      run: |
+        ${{ env.EXEC }} make arty_35.design
