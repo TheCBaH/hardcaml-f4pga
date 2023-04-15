@@ -5,7 +5,8 @@ set -x
 echo "Activating feature 'HARDCAML'"
 
 PACKAGES=${PACKAGES:-$@}
-echo "Selected packages: $PACKAGES"
+OCAML_VERSION=${OCAML_VERSION:-}
+echo "Selected packages: $PACKAGES "
 
 # From https://github.com/devcontainers/features/blob/main/src/git/install.sh
 apt_get_update()
@@ -75,12 +76,12 @@ updaterc "$rc"
 check_packages\
  libffi-dev\
  m4\
- ocaml\
  opam\
  pkg-config\
 
-opam init --no-setup --disable-sandboxing
+opam init --no-setup --disable-sandboxing --bare
 eval $(opam env)
+opam switch create ${OCAML_VERSION}
 opam install -y depext
 PACKAGES="\
  dune\
@@ -92,6 +93,7 @@ PACKAGES="\
  hardcaml_xilinx\
  ocaml-lsp-server\
  ocamlformat-rpc\
+ ppx_deriving\
  utop\
 "
 
