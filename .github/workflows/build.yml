@@ -13,13 +13,7 @@ jobs:
       uses: actions/checkout@v3
     - name: devcontainer
       uses: ./.github/workflows/actions/devcontainer
-      if: matrix.host == 'devcontainer'
       id: devcontainer
     - name: setup
       run: |
-        host="${{ matrix.host }}"
-        case "$host" in
-        devcontainer)
-          echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
-          ;;
-        esac
+        echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
