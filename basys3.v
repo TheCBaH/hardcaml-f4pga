@@ -4,7 +4,8 @@ module top (
     input btnC,
     input [15:0] sw,
     output [3:0] an,
-    output [7:0] seg
+    output [6:0] seg,
+    output dp,
 );
   reg  powered = 1'b0;
   assign reset_ctrl = ~powered | btnC;
@@ -23,7 +24,8 @@ module top (
       .clock(clk),
       .reset(reset),
       .anode(an),
-      .segment(seg)
+      .segment(seg),
+      .dot(dp)
   );
 
 endmodule

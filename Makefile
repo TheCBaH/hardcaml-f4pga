@@ -41,7 +41,7 @@ ${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
 
 ${BUILD_DIR}/basys3.xdc: ${BUILD_DIR}/Basys-3-Master.xdc
 	cp $^ $@.tmp
-	$(call activate_xdc, clk seg an btnC sw) $@.tmp
+	$(call activate_xdc, clk seg dp an btnC sw) $@.tmp
 	mv $@.tmp $@
 
 %.design: ${BUILD_DIR}/%.xdc ${COMMON.MK} rtl
