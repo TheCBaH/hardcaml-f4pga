@@ -118,7 +118,8 @@ let level_control_int ~max ~levels ~level ~scale =
   value
 
 let level_control_int_test = level_control_test (level_control_int ~scale:1)
-let level_control_int_test_scaled = level_control_test (level_control_int ~scale:16)
+let level_control_int_test_scaled_4 = level_control_test (level_control_int ~scale:4)
+let level_control_int_test_scaled_16 = level_control_test (level_control_int ~scale:16)
 let bits_of_constant c = Bits.num_bits_to_represent c
 
 let bits_of_constant_test =
@@ -179,21 +180,22 @@ let level_control_test =
   let _level = "level" in
   let _value = "value" in
   let levels = 16 in
-  let level = Base.Int.ceil_log2 levels |> Signal.input _level in
-  let max = 25 in
-  let scale = 4 in
-  let value = level_control ~levels ~level ~max ~scale in
-  let circuit = Circuit.create_exn ~name:"level_control" [ Signal.output _value value ] in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  List.iter
-    (fun v ->
-      Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
-      Cyclesim.cycle sim)
-    [ 15; 14; 11; 8; 4; 1; 0 ];
-  let display_rules =
-    Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _level; _value ] ~wave_format:Unsigned_int; default ]
-  in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:90 ~wave_width:4 waves
+  let test scale =
+    let level = Base.Int.ceil_log2 levels |> Signal.input _level in
+    let max = 25 in
+    let circuit = Circuit.create_exn ~name:"level_control" [ Signal.output _value value ] in
+    let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
+    List.iter
+      (fun v ->
+        Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
+        Cyclesim.cycle sim)
+      [ 15; 14; 11; 8; 4; 1; 0 ];
+    let display_rules =
+      Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _level; _value ] ~wave_format:Unsigned_int; default ]
+    in
+    Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:90 ~wave_width:4 waves in
+  List.iter test [4;16]
+
 
 (*
 let led ~reset ~clock ~red ~gren ~blue ~brightness =
