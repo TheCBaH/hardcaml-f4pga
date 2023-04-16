@@ -1,6 +1,6 @@
 
 module top (
-    input clk,
+    input CLK100MHZ,
     input [3:0] btn,
     output led0_b,
     output led0_g,
@@ -8,6 +8,7 @@ module top (
 );
   reg  powered = 1'b0;
   assign reset_ctrl = ~powered | btn[0];
+  assign clk = CLK100MHZ;
 
   always @(posedge clk) begin
       powered <= 1'b1;

@@ -40,11 +40,12 @@ ${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
 	#sed -i -E '-e s/#(.+)(CLK100MHZ)(.+)/\1\2\3/' $@.tmp
 	mv $@.tmp $@
 
-%.design: ${COMMON.MK} rtl
+%.design: ${BUILD_DIR}/%.xdc ${COMMON.MK} rtl
+	echo $<
 	rm -rf build
 	set -eu;. ${F4PGA_INSTALL_DIR}/${FPGA_FAM}/conda/etc/profile.d/conda.sh;\
 	 conda activate ${FPGA_FAM};${MAKE} -f ${COMMON.MK}\
-	 TARGET=$(basename $@) current_dir=${CURDIR} XDC=$(realpath $(basename $@).xdc)\
+	 TARGET=$(basename $@) current_dir=${CURDIR} XDC=$(realpath $<)\
 	  SOURCES='$(realpath $(basename $@).v $(wildcard ${BUILD_DIR}/*.v))' TOP=top
 
 %.download:
