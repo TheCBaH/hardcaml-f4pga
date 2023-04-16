@@ -180,9 +180,9 @@ let level_control_test =
   let _level = "level" in
   let _value = "value" in
   let levels = 16 in
-  let test scale =
+  let test scale max =
     let level = Base.Int.ceil_log2 levels |> Signal.input _level in
-    let max = 25 in
+    let value = level_control ~levels ~level ~max ~scale in
     let circuit = Circuit.create_exn ~name:"level_control" [ Signal.output _value value ] in
     let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
     List.iter
@@ -193,8 +193,9 @@ let level_control_test =
     let display_rules =
       Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _level; _value ] ~wave_format:Unsigned_int; default ]
     in
-    Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:90 ~wave_width:4 waves in
-  List.iter test [4;16]
+    Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:2 waves in
+  List.iter (fun scale ->
+    List.iter (fun max -> test max scale) [4;16]) [ 255;25;7]
 
 
 (*
