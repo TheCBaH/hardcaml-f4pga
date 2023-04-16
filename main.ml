@@ -34,8 +34,9 @@ let build_led () =
   let circuit =
     let clock = Signal.input "clock" 1 in
     let reset = Signal.input "reset" 1 in
+    let enable = Signal.input "clock" 1 in
     let value = Signal.input "value" 8 in
-    let control = Led.pwm ~reset ~clock ~base:256 ~value in
+    let control = Led.pwm ~reset ~clock ~base:256 ~value ~enable in
     Circuit.create_exn ~name [ Signal.output "control" control ]
   in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
