@@ -17,7 +17,6 @@ utop:
 
 
 OFL_BOARD.basys3=basys3
-TARGET=basys3
 
 BUILD_DIR=_build
 COMMON.MK=${BUILD_DIR}/common.mk
@@ -32,19 +31,22 @@ DIGILENT_XDC_VERSION=69d35015d4c3a0cb384a964459593cea5260697a
 ${BUILD_DIR}/Arty-A7-35-Master.xdc:
 	${CURL} $@ https://raw.githubusercontent.com/Digilent/digilent-xdc/${DIGILENT_XDC_VERSION}/$(notdir $@)
 
+activate_xdc=sed -i -E $(foreach v, $(1),-e 's/#(.+)($v)(.+)/\1\2\3/')
+
 ${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
 	cp $^ $@.tmp
-	sed -i -E 's/#(.+)(CLK100MHZ)(.+)/\1\2\3/' $@.tmp
+	$(call activate_xdc, CLK100MHZ led0_? btn ) $@.tmp
+	#sed -i -E '-e s/#(.+)(CLK100MHZ)(.+)/\1\2\3/' $@.tmp
 	mv $@.tmp $@
 
 %.design: ${COMMON.MK} rtl
 	rm -rf build
 	set -eu;. ${F4PGA_INSTALL_DIR}/${FPGA_FAM}/conda/etc/profile.d/conda.sh;\
 	 conda activate ${FPGA_FAM};${MAKE} -f ${COMMON.MK}\
-	 TARGET=${TARGET} current_dir=${CURDIR} XDC=$(realpath $(basename $@).xdc)\
+	 TARGET=$(basename $@) current_dir=${CURDIR} XDC=$(realpath $(basename $@).xdc)\
 	  SOURCES='$(realpath $(basename $@).v $(wildcard ${BUILD_DIR}/*.v))' TOP=top
 
-download:
+%.download:
 	set -eux;file=build/basys3/top.bit;\
      . ${F4PGA_INSTALL_DIR}/${FPGA_FAM}/conda/etc/profile.d/conda.sh;\
      conda activate ${FPGA_FAM};\
