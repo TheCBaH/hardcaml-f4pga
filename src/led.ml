@@ -101,7 +101,8 @@ type led_in = {
 }
 
 let level_control_float ~max ~levels ~level =
-  let step_float = (float_of_int max) /. (float_of_int levels) in
+  assert(levels>1);
+  let step_float = (float_of_int max) /. (float_of_int (levels - 1)) in
   let value = (float_of_int level ) *. step_float in
   (int_of_float value)
 
@@ -109,33 +110,27 @@ let level_control_test control =
   let test max levels level =
     control ~max ~levels ~level |>
     Printf.printf ("max:%u levels:%u level:%u value:%u\n%!") max levels level in
-  test 255 16 11;
-  test 255 16 8;
-  test 255 16 1;
-  test 25 16 11;
-  test 25 16 8;
-  test 25 16 1;
-  test 7 16 15;
-  test 7 16 8;
-  test 7 16 1
+  let levels = [15;14;11;8;4;1;0] in
+  List.iter (test 255 16) levels;
+  List.iter (test 25 16) levels;
+  List.iter (test 7 16) levels
 
 let level_control_float_test =
   level_control_test level_control_float
 
 let level_control_int ~max ~levels ~level ~scale =
-  let step_float = (float_of_int max) /. (float_of_int levels) in
+  assert(levels>1);
+  let step_float = (float_of_int max) /. (float_of_int (levels - 1)) in
   let step_int = int_of_float (step_float *. (float_of_int scale)) in
   let value = (level * step_int) / scale in
   value
 
-let level_control_float_test =
+let level_control_int_test =
   level_control_test (level_control_int ~scale:1)
-let level_control_float_test =
+let level_control_int_test_scaled =
   level_control_test (level_control_int ~scale:16)
 
-let bits_of_constant c =
-  if c = 0 then 1
-  else c + 1 |> Base.Int.ceil_log2
+let bits_of_constant c = Bits.num_bits_to_represent c
 
 let bits_of_constant_test =
   let test c =
@@ -152,15 +147,16 @@ let bits_of_constant_test =
 let level_control_bit ~max ~levels ~level ~scale =
   let scale_bits = Base.Int.ceil_log2 scale in
   let scale  = 1 lsl scale_bits in
-  let step_float = (float_of_int max) /. (float_of_int levels) in
+  assert(levels>1);
+  let step_float = (float_of_int max) /. (float_of_int (levels - 1)) in
   let step_int = int_of_float (step_float *. (float_of_int scale)) in
   let step_bits = bits_of_constant step_int |> Stdlib.max scale_bits in
   let open Bits in
   let step = of_int ~width:step_bits step_int in
   (* let level_bits = width level in *)
   let value_scaled = level *: step in
-  let value_scaled = drop_bottom value_scaled scale_bits in
-  value_scaled
+  let value = drop_bottom value_scaled scale_bits in
+  bits_of_constant max |> uresize value
 
 let level_control_test =
   let test scale max levels level =
@@ -170,16 +166,42 @@ let level_control_test =
     Printf.printf ("scale:%u max:%u levels:%u level:%u value:%u:%u\n%!") scale max levels
       (Bits.to_int level) (Bits.to_int value) (Bits.width value) in
   List.iter (fun scale ->
-    test scale 255 16 11;
-    test scale 255 16 8;
-    test scale 255 16 1;
-    test scale 25 16 11;
-    test scale 25 16 8;
-    test scale 25 16 1;
-    test scale 7 16 15;
-    test scale 7 16 8;
-    test scale 7 16 1
+    let levels = [15;14;11;8;4;1;0] in
+    List.iter (test scale 255 16) levels;
+    List.iter (test scale 25 16) levels;
+    List.iter (test scale 7 16) levels
   ) [1;4;16]
+
+let level_control ~max ~levels ~level ~scale =
+  let scale_bits = Base.Int.ceil_log2 scale in
+  let scale  = 1 lsl scale_bits in
+  assert(levels>1);
+  let step_float = (float_of_int max) /. (float_of_int (levels - 1)) in
+  let step_int = int_of_float (step_float *. (float_of_int scale)) in
+  let step_bits = bits_of_constant step_int |> Stdlib.max scale_bits in
+  let open Signal in
+  let step = of_int ~width:step_bits step_int in
+  (* let level_bits = width level in *)
+  let value_scaled = level *: step in
+  let value = drop_bottom value_scaled scale_bits in
+  bits_of_constant max |> uresize value
+
+let level_control_test =
+  let _level = "level" in
+  let _value = "value" in
+  let levels = 16 in
+  let level = Base.Int.ceil_log2 levels |> Signal.input _level in
+  let max = 25 in
+  let scale = 4 in
+  let value = level_control ~levels ~level ~max ~scale in
+  let circuit = Circuit.create_exn ~name:"level_control" [ Signal.output _value value ] in
+  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
+  List.iter (fun v ->
+    Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
+    Cyclesim.cycle sim) [15;14;11;8;4;1;0];
+  let display_rules = Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [_level;_value] ~wave_format:Unsigned_int; default ] in
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:90 ~wave_width:4 waves
+
 
 (*
 let led ~reset ~clock ~red ~gren ~blue ~brightness =
