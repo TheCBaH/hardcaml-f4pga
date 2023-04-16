@@ -22,8 +22,8 @@ module top (
   clock TOP (
       .clock(clk),
       .reset(reset),
-      .anode(anode),
-      .segment(segment)
+      .anode(an),
+      .segment(seg)
   );
 
 endmodule
