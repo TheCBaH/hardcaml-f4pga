@@ -35,7 +35,7 @@ let build_led () =
     let clock = { clock = 100_000_000; wire = Signal.input "clock" 1 } in
     let reset = Signal.input "reset" 1 in
     let control = Led.led_top ~reset ~clock in
-    Circuit.create_exn ~name [ Signal.output "control" control ]
+    Circuit.create_exn ~name [ Signal.output "led0_b" control.Led.Control.blue; Signal.output "led0_g" control.Led.Control.green; Signal.output "led0_r" control.Led.Control.red;]
   in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 

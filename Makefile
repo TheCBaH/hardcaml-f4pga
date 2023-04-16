@@ -23,8 +23,19 @@ BUILD_DIR=_build
 COMMON.MK=${BUILD_DIR}/common.mk
 F4PGA_VERSION=a5a44fa0c585783dcc1c6be32e88613be800287b
 
+CURL=curl --fail --location --show-error -o
 ${COMMON.MK}:
-	curl --fail --location --show-error -o $@ https://raw.githubusercontent.com/chipsalliance/f4pga-examples/${F4PGA_VERSION}/common/$(notdir $@)
+	${CURL} $@ https://raw.githubusercontent.com/chipsalliance/f4pga-examples/${F4PGA_VERSION}/common/$(notdir $@)
+
+DIGILENT_XDC_VERSION=69d35015d4c3a0cb384a964459593cea5260697a
+
+${BUILD_DIR}/Arty-A7-35-Master.xdc:
+	${CURL} $@ https://raw.githubusercontent.com/Digilent/digilent-xdc/${DIGILENT_XDC_VERSION}/$(notdir $@)
+
+${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
+	cp $^ $@.tmp
+	sed -i -E 's/#(.+)(CLK100MHZ)(.+)/\1\2\3/' $@.tmp
+	mv $@.tmp $@
 
 %.design: ${COMMON.MK} rtl
 	rm -rf build

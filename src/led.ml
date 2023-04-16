@@ -297,4 +297,4 @@ let led_top ~clock ~reset =
   let level, _ = Clock.counter_with_carry ~base:levels ~reset ~increment:_1Hz ~clock:clock.wire () in
   let orchid = { Color.red = 218; green = 112; blue = 214 } in
   let control = led_control ~reset ~clock:clock.wire ~enable:_10kHz ~base ~levels ~level ~color:orchid in
-  Signal.concat_lsb [ control.Control.red; control.Control.blue; control.Control.blue ]
+  control
