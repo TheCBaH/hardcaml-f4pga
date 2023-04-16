@@ -19,6 +19,7 @@ jobs:
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
     - name: hardcaml
       run: |
+        ls -al /opt/opam/log/
         ${{ env.EXEC }} make rtl
     - name: f4pga basys3
       run: |
