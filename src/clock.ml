@@ -138,24 +138,31 @@ let counter_with_carry_test_2 =
 
 type clock = { clock : int; wire : Signal.t }
 
-let trigger_gen ~target ~reset ~clock =
-  let divider = clock.clock / target in
-  let limit = divider - 1 in
+let trigger_gen ?divider ?target ?enable ?(exact = true) ~reset ~clock () =
+  let enable = Option.value ~default:Signal.vdd enable in
+  let divider = match divider with Some divider -> divider | None -> clock.clock / Option.get target in
+  assert (divider > 0);
   let bits = Base.Int.ceil_log2 divider in
-  let open Signal in
-  let spec = Reg_spec.create ~clock:clock.wire ~clear:reset () in
-  let count = wire bits in
-  let pulse = count ==:. limit in
-  let next = mux2 pulse (zero bits) (count +:. 1) in
-  count <== reg spec next;
-  pulse
+  let divider = if exact then divider else 1 lsl bits in
+  let limit = divider - 1 in
+  if divider = 1 then clock.wire
+  else
+    let open Signal in
+    let spec = Reg_spec.create ~clock:clock.wire ~clear:reset () in
+    let count = wire bits in
+    let pulse = count ==:. limit in
+    let incr = count +:. 1 in
+    let next = if divider = 1 lsl bits then incr else mux2 pulse (zero bits) incr in
+    let next = mux2 enable next count in
+    count <== reg spec next;
+    pulse
 
 let trigger_gen_test =
   let _clock = "clock" in
   let _reset = "_reset" in
   let clock = { clock = 10; wire = Signal.input _clock 1 } in
   let reset = Signal.input _reset 1 in
-  let pulse = trigger_gen ~clock ~reset ~target:2 in
+  let pulse = trigger_gen ~clock ~reset ~target:2 () in
   let circuit = Circuit.create_exn ~name:"trigger_gen" [ Signal.output "pulse" pulse ] in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let set wire = Cyclesim.in_port sim wire := Bits.vdd in
@@ -311,7 +318,7 @@ let multi_counter_test =
 
 let clock_top ~clock ~reset ~refresh ~tick =
   let open Signal in
-  let tick = trigger_gen ~clock ~reset ~target:tick in
+  let tick = trigger_gen ~clock ~reset ~target:tick () in
   let digits = multi_counter ~increment:tick ~clock:clock.wire ~reset ~digits:4 () in
   let digits =
     List.mapi
@@ -320,7 +327,7 @@ let clock_top ~clock ~reset ~refresh ~tick =
         { data = d; enable = vdd; dot })
       digits
   in
-  let refresh = trigger_gen ~clock ~reset ~target:refresh in
+  let refresh = trigger_gen ~clock ~reset ~target:refresh ~exact:false () in
   let anode, segment = display ~clock:clock.wire ~digits ~reset ~next:refresh in
   (anode, segment)
 

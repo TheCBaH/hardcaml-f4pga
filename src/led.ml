@@ -231,13 +231,13 @@ let pwm_control_test =
   let set wire = Cyclesim.in_port sim wire := Bits.vdd in
   let set_level v =
     Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
-    cycles base
+    2 * base |> cycles
   in
   set _enable;
   set_level 1;
   set_level 2;
   set_level 3;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:84 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
 
 module Color = struct
   type t = { red : int; green : int; blue : int }
@@ -246,3 +246,45 @@ end
 module Control = struct
   type t = { red : Signal.t; blue : Signal.t; green : Signal.t }
 end
+
+let led_control ~clock ~reset ~enable ~base ~level ~levels ~color =
+  let control color = pwm_control ~reset ~clock ~enable ~base ~max:color ~levels ~level in
+  { Control.red = control color.Color.red; blue = control color.Color.blue; green = control color.Color.green }
+
+let led_control_test =
+  let _clock = "clock" in
+  let _enable = "enable " in
+  let _reset = "_reset" in
+  let _level = "level" in
+  let clock = Signal.input _clock 1 in
+  let enable = Signal.input _enable 1 in
+  let reset = Signal.input _reset 1 in
+  let levels = 4 in
+  let base = 8 in
+  let level = Bits.num_bits_to_represent levels |> Signal.input _level in
+  let color = { Color.red = 2; Color.blue = 4; Color.green = 7 } in
+  let control = led_control ~reset ~clock ~enable ~base ~levels ~level ~color in
+  let circuit =
+    Circuit.create_exn ~name:"pwm_control"
+      [
+        Signal.output "red" control.Control.red;
+        Signal.output "blue" control.Control.blue;
+        Signal.output "green" control.Control.green;
+      ]
+  in
+  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
+  let cycles n =
+    for _ = 0 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
+  let set_level v =
+    Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
+    2 * base |> cycles
+  in
+  set _enable;
+  set_level 1;
+  set_level 2;
+  set_level 3;
+  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
