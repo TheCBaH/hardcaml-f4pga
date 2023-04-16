@@ -17,6 +17,7 @@ utop:
 
 
 OFL_BOARD.basys3=basys3
+OFL_BOARD.arty_35=arty_a7_35t
 
 BUILD_DIR=_build
 COMMON.MK=${BUILD_DIR}/common.mk
@@ -47,9 +48,9 @@ ${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
 	  SOURCES='$(realpath $(basename $@).v $(wildcard ${BUILD_DIR}/*.v))' TOP=top
 
 %.download:
-	set -eux;file=build/basys3/top.bit;\
+	set -eux;file=build/$(basename $@)/top.bit;\
      . ${F4PGA_INSTALL_DIR}/${FPGA_FAM}/conda/etc/profile.d/conda.sh;\
      conda activate ${FPGA_FAM};\
-     sudo $$(command -v openFPGALoader) -b $(OFL_BOARD.${TARGET}) $$file
+     sudo $$(command -v openFPGALoader) -b $(OFL_BOARD.$(basename $@)) $$file
 
 .PHONY: default main clean

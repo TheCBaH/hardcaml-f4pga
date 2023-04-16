@@ -1,7 +1,7 @@
 
 module top (
-    input CLK100MHZ,
-    input btn,
+    input clk,
+    input [3:0] btn,
     output led0_b,
     output led0_g,
     output led0_r,
