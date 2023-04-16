@@ -240,11 +240,11 @@ let pwm_control_test =
   Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
 
 module Color = struct
-  type t = { red : int; green : int; blue : int }
+  type t = { blue : int; green : int; red : int }
 end
 
 module Control = struct
-  type t = { red : Signal.t; blue : Signal.t; green : Signal.t }
+  type t = { blue : Signal.t; green : Signal.t; red : Signal.t }
 end
 
 let led_control ~clock ~reset ~enable ~base ~level ~levels ~color =
@@ -288,3 +288,13 @@ let led_control_test =
   set_level 2;
   set_level 3;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
+
+let led_top ~clock ~reset =
+  let base = 256 in
+  let levels = 16 in
+  let _10kHz = Clock.trigger_gen ~clock ~reset ~target:10_000 () in
+  let _1Hz = Clock.trigger_gen ~clock ~reset ~divider:10_000 ~enable:_10kHz () in
+  let level, _ = Clock.counter_with_carry ~base:levels ~reset ~increment:_1Hz ~clock:clock.wire () in
+  let orchid = { Color.red = 218; green = 112; blue = 214 } in
+  let control = led_control ~reset ~clock:clock.wire ~enable:_10kHz ~base ~levels ~level ~color:orchid in
+  Signal.concat_lsb [ control.Control.red; control.Control.blue; control.Control.blue ]

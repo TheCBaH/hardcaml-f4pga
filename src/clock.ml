@@ -55,13 +55,15 @@ let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
   let base_bits = Base.Int.ceil_log2 base in
   let bits = Option.value ~default:base_bits bits in
   assert (bits >= base_bits);
-  let spec = Reg_spec.create ~clock () in
+  let spec = Reg_spec.create ~clock ~clear:reset () in
   let open Signal in
   let count_next = wire bits in
   let limit = base - 1 in
   let count = reg spec count_next in
   let cary = increment &: (count ==:. limit) in
-  count_next <== mux2 (cary |: reset) (zero (Signal.width count_next)) (mux2 increment (count +:. 1) count);
+  let incr = mux2 increment (count +:. 1) count in
+  let next = if base = 1 lsl bits then incr else mux2 cary (zero (Signal.width count_next)) incr in
+  count_next <== next;
   (count, cary)
 
 let counter_with_carry_test_1 =
@@ -139,8 +141,13 @@ let counter_with_carry_test_2 =
 type clock = { clock : int; wire : Signal.t }
 
 let trigger_gen ?divider ?target ?enable ?(exact = true) ~reset ~clock () =
+  let divider =
+    match (enable, target, divider) with
+    | _, None, Some divider -> divider
+    | None, Some target, None -> clock.clock / target
+    | _ -> assert false
+  in
   let enable = Option.value ~default:Signal.vdd enable in
-  let divider = match divider with Some divider -> divider | None -> clock.clock / Option.get target in
   assert (divider > 0);
   let bits = Base.Int.ceil_log2 divider in
   let divider = if exact then divider else 1 lsl bits in
