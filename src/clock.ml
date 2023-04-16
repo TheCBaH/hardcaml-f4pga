@@ -360,7 +360,6 @@ module Reset = struct
   let hierarchical scope input =
     let module H = Hierarchy.In_scope (I) (O) in
     H.hierarchical ~scope ~name:"reset" create input
-
 end
 
 module Clock = struct
@@ -369,12 +368,13 @@ module Clock = struct
   end
 
   module O = struct
-    type 'a t = { anode: 'a; [@bits 4] segment: 'a; [@bits 8]  } [@@deriving sexp_of, hardcaml]
+    type 'a t = { anode : 'a; [@bits 4] segment : 'a [@bits 8] } [@@deriving sexp_of, hardcaml]
   end
+
   let create (_scope : Scope.t) (input : Signal.t I.t) =
     let clock = { clock = 100_000_000; wire = input.clock } in
     let anode, segment = clock_top ~clock ~reset:input.reset ~refresh:1000 ~tick:100 in
-    { O.anode ; segment}
+    { O.anode; segment }
 end
 
 module ClockCircuit = Circuit.With_interface (Clock.I) (Clock.O)
