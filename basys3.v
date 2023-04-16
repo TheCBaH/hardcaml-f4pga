@@ -1,13 +1,13 @@
 
 module top (
     input clk,
-    input btnc,
-    input sw,
-    output [3:0] anode,
-    output [7:0] segment
+    input btnC,
+    input [15:0] sw,
+    output [3:0] an,
+    output [7:0] seg
 );
   reg  powered = 1'b0;
-  assign reset_ctrl = ~powered | btnc;
+  assign reset_ctrl = ~powered | btnC;
 
   always @(posedge clk) begin
       powered <= 1'b1;

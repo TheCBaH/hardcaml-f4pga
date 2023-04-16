@@ -29,7 +29,7 @@ ${COMMON.MK}:
 
 DIGILENT_XDC_VERSION=69d35015d4c3a0cb384a964459593cea5260697a
 
-${BUILD_DIR}/Arty-A7-35-Master.xdc:
+${BUILD_DIR}/%-Master.xdc:
 	${CURL} $@ https://raw.githubusercontent.com/Digilent/digilent-xdc/${DIGILENT_XDC_VERSION}/$(notdir $@)
 
 activate_xdc=sed -i -E $(foreach v, $(1),-e 's/#(.+)($v)(.+)/\1\2\3/')
@@ -37,7 +37,11 @@ activate_xdc=sed -i -E $(foreach v, $(1),-e 's/#(.+)($v)(.+)/\1\2\3/')
 ${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
 	cp $^ $@.tmp
 	$(call activate_xdc, CLK100MHZ led0_? btn ) $@.tmp
-	#sed -i -E '-e s/#(.+)(CLK100MHZ)(.+)/\1\2\3/' $@.tmp
+	mv $@.tmp $@
+
+${BUILD_DIR}/basys3.xdc: ${BUILD_DIR}/Basys-3-Master.xdc
+	cp $^ $@.tmp
+	$(call activate_xdc, clk seg an btnC sw) $@.tmp
 	mv $@.tmp $@
 
 %.design: ${BUILD_DIR}/%.xdc ${COMMON.MK} rtl

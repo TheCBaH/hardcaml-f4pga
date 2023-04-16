@@ -20,6 +20,9 @@ jobs:
     - name: hardcaml
       run: |
         ${{ env.EXEC }} make rtl
-    - name: f4pga
+    - name: f4pga basys3
       run: |
         ${{ env.EXEC }} make design.basys3
+    - name: f4pga art_35
+      run: |
+        ${{ env.EXEC }} make design.arty_35
