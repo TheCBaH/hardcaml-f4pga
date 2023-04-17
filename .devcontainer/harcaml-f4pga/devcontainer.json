@@ -14,6 +14,6 @@
             ]
         }
     },
-    "postCreateCommand": "sudo sh -ceux \"chmod -R $(id -u):$(id -g) /opt/*\"",
+    "postCreateCommand": "sudo sh -ceux \"chown -R $(id -u):$(id -g) /opt/*\"",
     "waitFor": "postCreateCommand"
 }
