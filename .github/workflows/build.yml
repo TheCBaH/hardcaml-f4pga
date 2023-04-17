@@ -20,6 +20,8 @@ jobs:
     - name: hardcaml
       run: |
         ${{ env.EXEC }} ls -al /opt/opam/log/
+        ${{ env.EXEC }} id
+        ${{ env.EXEC }} touch /opt/opam/log/foo-bar
         ${{ env.EXEC }} make rtl
     - name: f4pga basys3
       run: |
