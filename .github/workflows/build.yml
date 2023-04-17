@@ -19,6 +19,7 @@ jobs:
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
     - name: hardcaml
       run: |
+        id
         ${{ env.EXEC }} ls -al /opt/opam/log/
         ${{ env.EXEC }} id
         ${{ env.EXEC }} touch /opt/opam/log/foo-bar
