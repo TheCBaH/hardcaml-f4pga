@@ -26,7 +26,7 @@ jobs:
         ${{ env.EXEC }} make rtl
     - name: f4pga basys3
       run: |
-        ${{ env.EXEC }} make design.basys3
+        ${{ env.EXEC }} make basys3.design
     - name: f4pga art_35
       run: |
-        ${{ env.EXEC }} make design.arty_35
+        ${{ env.EXEC }} make arty_35.design
