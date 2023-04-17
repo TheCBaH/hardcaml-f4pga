@@ -93,14 +93,12 @@ PACKAGES="\
  hardcaml_xilinx\
  ocaml-lsp-server\
  ocamlformat-rpc\
- ppx_deriving\
  utop\
 "
 
 opam depext ${PACKAGES}
 opam install ${PACKAGES}
 opam clean --repo-cache
-rm -rf $OPAMROOT/repo
 opam list
 chown -R ${USERNAME} $OPAMROOT
 

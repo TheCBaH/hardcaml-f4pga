@@ -37,7 +37,12 @@ let build_led () =
     let control = Led.led_top ~reset ~clock in
     Circuit.create_exn ~name [ Signal.output "led0_b" control.Led.Control.blue; Signal.output "led0_g" control.Led.Control.green; Signal.output "led0_r" control.Led.Control.red;]
   in
+  if false; then begin
+    let waves, _ = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
+    Hardcaml_waveterm_interactive.run waves
+  end;
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
+
 
 let () =
   build_clock ();
