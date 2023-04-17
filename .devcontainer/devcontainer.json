@@ -31,7 +31,7 @@
             ]
         }
     },
-    "postCreateCommand": "sudo sh -ceux \"chown -R $(id -u):$(id -g) /opt/*\"",
+    "postCreateCommand": "sudo sh -ceux \"chown -R $(id -u):$(id -g) ${OPAMROOT}/log\"",
     "waitFor": "postCreateCommand",
     "remoteUser": "vscode"
 }
