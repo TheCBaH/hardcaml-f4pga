@@ -29,5 +29,6 @@ jobs:
       run: |
         ${{ env.EXEC }} make arty_35.design
     - name: hardcaml utop
+      run: |
         ${{ env.EXEC }} echo '#use "src/util.ml";;' | make utop | tee log.utop
         grep hierarchical log.utop
