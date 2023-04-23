@@ -24,7 +24,7 @@ jobs:
         ${{ env.EXEC }} make rtl
     - name: hardcaml utop
       run: |
-        ${{ env.EXEC }} echo '#use "src/util.ml";;' | make utop | tee log.utop
+        ${{ env.EXEC }} sh -ceux "echo '#use \"src/util.ml\";;' | make utop | tee log.utop"
         grep hierarchical log.utop
     - name: f4pga basys3
       run: |
