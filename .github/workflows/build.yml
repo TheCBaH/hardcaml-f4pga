@@ -21,10 +21,6 @@ jobs:
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
     - name: hardcaml
       run: |
-        id
-        ${{ env.EXEC }} ls -al /opt/opam/log/
-        ${{ env.EXEC }} id
-        ${{ env.EXEC }} touch /opt/opam/log/foo-bar
         ${{ env.EXEC }} make rtl
     - name: f4pga basys3
       run: |
@@ -32,3 +28,6 @@ jobs:
     - name: f4pga art_35
       run: |
         ${{ env.EXEC }} make arty_35.design
+    - name: hardcaml utop
+        ${{ env.EXEC }} echo '#use "src/util.ml";;' | make utop | tee log.utop
+        grep hierarchical log.utop
