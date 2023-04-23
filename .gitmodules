@@ -1,0 +1,3 @@
+[submodule "modules/ppx_deriving_hardcaml"]
+	path = modules/ppx_deriving_hardcaml
+	url = https://github.com/janestreet/ppx_deriving_hardcaml.git
