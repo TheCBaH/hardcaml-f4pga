@@ -31,7 +31,10 @@
             ]
         }
     },
-    "postCreateCommand": "sudo sh -ceux \"chown -R $(id -u):$(id -g) ${OPAMROOT}/log\"",
-    "waitFor": "postCreateCommand",
-    "remoteUser": "vscode"
+    "remoteUser": "vscode",
+    "postCreateCommand": {
+        "opam": "sudo sh -ceux \"chown -R $(id -u):$(id -g) ${OPAMROOT}/log\"",
+        "submodules": "git submodule update --recursive --init"
+    },
+    "waitFor": "postCreateCommand"
 }
