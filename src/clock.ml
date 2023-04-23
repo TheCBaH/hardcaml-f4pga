@@ -11,9 +11,7 @@ let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
   let count = reg spec count_next in
   let cary = increment &: (count ==:. limit) in
   let incr = mux2 increment (count +:. 1) count in
-  let next =
-  if base = 1 lsl bits then incr
-  else mux2 cary (zero (Signal.width count_next)) incr in
+  let next = if base = 1 lsl bits then incr else mux2 cary (zero (Signal.width count_next)) incr in
   count_next <== next;
   (count, cary)
 
@@ -199,7 +197,7 @@ let display ~clock ~digits ~next ~reset =
   in
   let data = mux digit (List.map (fun d -> d.data) digits) in
   let segment = segment_encode ~digit:data in
-  let dot = mux digit (List.map (fun d ->  ~: (d.dot)) digits) in
+  let dot = mux digit (List.map (fun d -> ~:(d.dot)) digits) in
   let digit_next = mux2 next (mux2 (digit ==:. digits_count - 1) (width digit |> zero) (digit +:. 1)) digit in
   digit <== reg spec digit_next;
   (anode, segment, dot)
@@ -221,7 +219,10 @@ let display_test =
   let digits = [ { data = digit_0; enable; dot }; { data = digit_1; enable; dot } ] in
   let reset = Signal.input _reset 1 in
   let anode, segment, dot = display ~clock ~digits ~reset ~next:enable in
-  let circuit = Circuit.create_exn ~name:"display" [ Signal.output _anode anode; Signal.output _segment segment; Signal.output "_dot" dot ] in
+  let circuit =
+    Circuit.create_exn ~name:"display"
+      [ Signal.output _anode anode; Signal.output _segment segment; Signal.output "_dot" dot ]
+  in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let set wire = Cyclesim.in_port sim wire := Bits.vdd in
   (* let clear wire = Cyclesim.in_port sim wire := Bits.gnd in *)
@@ -298,7 +299,10 @@ let clock_top_test =
   let clock = { clock = 2000; wire = Signal.input _clock 1 } in
   let reset = Signal.input _reset 1 in
   let anode, segment, dot = clock_top ~clock ~reset ~refresh:1000 ~tick:500 in
-  let circuit = Circuit.create_exn ~name:"clock_top" [ Signal.output _anode anode; Signal.output _segment segment; Signal.output _dot dot] in
+  let circuit =
+    Circuit.create_exn ~name:"clock_top"
+      [ Signal.output _anode anode; Signal.output _segment segment; Signal.output _dot dot ]
+  in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let cycles n =
     for _ = 0 to n do
@@ -321,7 +325,7 @@ module Reset = struct
   end
 
   let create (scope : Scope.t) (input : Signal.t I.t) =
-    let pulse = Util.Pulse.hierarchical scope ~length:2 {Util.Pulse.I.clock=input.clock; reset=input.activate} in
+    let pulse = Util.Pulse.hierarchical scope ~length:2 { Util.Pulse.I.clock = input.clock; reset = input.activate } in
     { O.reset = pulse.Util.Pulse.O.pulse }
 
   let hierarchical scope input =
@@ -335,7 +339,7 @@ module Clock = struct
   end
 
   module O = struct
-    type 'a t = { anode : 'a; [@bits 4] segment : 'a [@bits 8] ; dot : 'a;} [@@deriving sexp_of, hardcaml]
+    type 'a t = { anode : 'a; [@bits 4] segment : 'a; [@bits 8] dot : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create (_scope : Scope.t) (input : Signal.t I.t) =
