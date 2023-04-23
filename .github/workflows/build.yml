@@ -22,13 +22,13 @@ jobs:
     - name: hardcaml
       run: |
         ${{ env.EXEC }} make rtl
+    - name: hardcaml utop
+      run: |
+        ${{ env.EXEC }} echo '#use "src/util.ml";;' | make utop | tee log.utop
+        grep hierarchical log.utop
     - name: f4pga basys3
       run: |
         ${{ env.EXEC }} make basys3.design
     - name: f4pga art_35
       run: |
         ${{ env.EXEC }} make arty_35.design
-    - name: hardcaml utop
-      run: |
-        ${{ env.EXEC }} echo '#use "src/util.ml";;' | make utop | tee log.utop
-        grep hierarchical log.utop
