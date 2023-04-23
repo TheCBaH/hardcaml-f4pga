@@ -37,7 +37,7 @@ let build_led () =
     let control = Led.led_top ~reset ~clock in
     Circuit.create_exn ~name [ Signal.output "led0_b" control.Led.Control.blue; Signal.output "led0_g" control.Led.Control.green; Signal.output "led0_r" control.Led.Control.red;]
   in
-  if true; then begin
+  if false; then begin
     let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
     for _i = 0 to 1000 do
       Cyclesim.cycle sim;
