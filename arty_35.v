@@ -20,12 +20,14 @@ module top (
       .reset(reset)
   );
 
-  led TOP (
+/*
+  led_top TOP (
       .clock(clk),
-      .reset(reset),
-      .led0_b(led0_b),
-      .led0_g(led0_g),
-      .led0_r(led0_r),
+      .reset_(reset),
+      .blue(led0_b),
+      .green(led0_g),
+      .red(led0_r),
   );
+*/
 
 endmodule

@@ -16,8 +16,8 @@ module top (
 
   reset RESET (
       .clock(clk),
-      .activate(reset_ctrl),
-      .reset(reset)
+      .reset_(reset_ctrl),
+      .reset(pulse)
   );
 
   clock TOP (
