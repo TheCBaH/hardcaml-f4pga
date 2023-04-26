@@ -1,96 +1,5 @@
 open Hardcaml
 
-let pwm_impl ~clock ~reset ~enable ~base ~value =
-  assert (base > 0);
-  let bits = Base.Int.ceil_log2 base in
-  let open Signal in
-  let count = wire bits in
-  let count_succ =
-    let incr = count +:. 1 in
-    if base = 1 lsl bits then incr else mux2 (count <>:. base - 1) incr (zero bits)
-  in
-  let count_succ = mux2 enable count_succ count in
-  let spec = Reg_spec.create ~clock ~clear:reset () in
-  count <== reg spec count_succ;
-  let value = uresize value bits in
-  let control = count <: value &: ~:reset in
-  (control, count)
-
-let pwm ~clock ~reset ~enable ~base ~value = pwm_impl ~clock ~reset ~enable ~base ~value |> fst
-
-let pwm_impl_test =
-  let _clock = "clock" in
-  let _enable = "enable " in
-  let _reset = "_reset" in
-  let _value = "value" in
-  let clock = Signal.input _clock 1 in
-  let enable = Signal.input _enable 1 in
-  let reset = Signal.input _reset 1 in
-  let value = Signal.input _value 2 in
-  let control, count = pwm_impl ~reset ~clock ~enable ~base:5 ~value in
-  let circuit = Circuit.create_exn ~name:"pwm_impl" [ Signal.output "control" control; Signal.output "count" count ] in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
-  let clear wire = Cyclesim.in_port sim wire := Bits.gnd in
-  let set_value v = Cyclesim.in_port sim _value := Bits.of_int ~width:(Signal.width value) v in
-  set_value 2;
-  cycles 1;
-  set _enable;
-  cycles 5;
-  set _reset;
-  cycles 2;
-  clear _reset;
-  cycles 2;
-  set_value 1;
-  cycles 5;
-  set_value 3;
-  cycles 5;
-  set_value 0;
-  cycles 1;
-  set_value 3;
-  cycles 2;
-  Hardcaml_waveterm.Waveform.print ~display_height:16 ~display_width:84 ~wave_width:0 waves
-
-let pwm_test =
-  let _clock = "clock" in
-  let _enable = "enable " in
-  let _reset = "_reset" in
-  let _value = "value" in
-  let clock = Signal.input _clock 1 in
-  let enable = Signal.input _enable 1 in
-  let reset = Signal.input _reset 1 in
-  let value = Signal.input _value 2 in
-  let control = pwm ~reset ~clock ~enable ~base:4 ~value in
-  let circuit = Circuit.create_exn ~name:"pwm" [ Signal.output "control" control ] in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
-  let clear wire = Cyclesim.in_port sim wire := Bits.gnd in
-  let set_value v = Cyclesim.in_port sim _value := Bits.of_int ~width:(Signal.width value) v in
-  set _enable;
-  set_value 2;
-  cycles 4;
-  set _reset;
-  cycles 1;
-  clear _reset;
-  cycles 1;
-  set_value 1;
-  cycles 5;
-  set_value 0;
-  cycles 5;
-  set_value 3;
-  cycles 7;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:84 ~wave_width:0 waves
-
 type led_in = { value : int; wire : Signal.t }
 
 let level_control_float ~max ~levels ~level =
@@ -203,37 +112,57 @@ let level_control_test =
         [ 4; 16 ])
     [ 255; 25; 7 ]
 
-let pwm_control ~clock ~reset ~enable ~base ~max ~levels ~level =
+let pwm_control ~scope ~clock ~reset ~enable ~base ~max ~levels ~level =
   let scale = base / max in
   let value = level_control ~max ~levels ~level ~scale in
-  let control = pwm ~clock ~reset ~enable ~base ~value in
+  let control = Util.pwm ~scope ~clock ~reset ~enable ~base ~value () in
   control
 
+module PwmControl (Levels: Util.Integer) = struct
+  let bits = Bits.num_bits_to_represent Levels.value
+  module I = struct
+    type 'a t = {
+      clock : 'a;
+      enable : 'a;
+      reset : 'a; [@rtlsuffix "_"]
+      level: 'a; [@bits bits]
+    }
+    [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { control : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create ~base ~max scope (input : Signal.t I.t) =
+    { O.control = pwm_control ~scope ~clock:input.clock ~reset:input.reset ~enable:input.enable ~base ~max ~levels:Levels.value ~level:input.level }
+
+  let hierarchical ~base ~max scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    H.hierarchical ~scope ~name:"pwm_control" (create ~base ~max) input
+end
+
 let pwm_control_test =
-  let _clock = "clock" in
-  let _enable = "enable " in
-  let _reset = "_reset" in
-  let _level = "level" in
-  let clock = Signal.input _clock 1 in
-  let enable = Signal.input _enable 1 in
-  let reset = Signal.input _reset 1 in
-  let levels = 4 in
+  let module Levels = struct
+    let value = 4
+  end in
+  let scope = Scope.create ~flatten_design:true () in
+  let module PwmControl = PwmControl(Levels) in
+  let module Simulator = Cyclesim.With_interface (PwmControl.I) (PwmControl.O) in
   let base = 8 in
-  let level = Bits.num_bits_to_represent levels |> Signal.input _level in
-  let control = pwm_control ~reset ~clock ~enable ~base ~max:6 ~levels ~level in
-  let circuit = Circuit.create_exn ~name:"pwm_control" [ Signal.output "control" control ] in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
+  let waves, sim = PwmControl.create ~max:6 ~base scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
     done
   in
-  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
   let set_level v =
-    Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
-    2 * base |> cycles
-  in
-  set _enable;
+    inputs.level := Bits.of_int ~width:(Bits.width !(inputs.level)) v;
+  2 * base |> cycles
+ in
+  set inputs.enable;
   set_level 1;
   set_level 2;
   set_level 3;
@@ -243,58 +172,102 @@ module Color = struct
   type t = { blue : int; green : int; red : int }
 end
 
-module Control = struct
-  type t = { blue : Signal.t; green : Signal.t; red : Signal.t }
+module Led (Levels: Util.Integer) = struct
+  let bits = Bits.num_bits_to_represent Levels.value
+
+  module Level = struct
+    type 'a t = { blue : 'a; [@bits bits] green : 'a [@bits bits]; red : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+  end
+
+  module I = struct
+    type 'a t = {
+      clock : 'a;
+      enable : 'a;
+      reset : 'a; [@rtlsuffix "_"]
+      level : 'a Level.t ;
+    }
+    [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { blue: 'a; green: 'a; red : 'a; }
+     [@@deriving sexp_of, hardcaml]
+  end
+
+  module PwmControl = PwmControl(Levels)
+
+  let create ~base ~color scope (input : Signal.t I.t) =
+    let control color level =
+      let pwm_in = {PwmControl.I.reset = input.reset; level ; clock = input.clock; enable = input.enable } in
+      let pwm_out = PwmControl.create ~base ~max:color scope pwm_in in
+      pwm_out.PwmControl.O.control in
+    { O.blue = control color.Color.blue input.level.blue ;
+    green = control color.Color.green input.level.green;
+   red = control color.Color.red input.level.red }
+
+  let hierarchical ~base ~color scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    H.hierarchical ~scope ~name:"led" (create ~base ~color) input
+
 end
 
-let led_control ~clock ~reset ~enable ~base ~level ~levels ~color =
-  let control color = pwm_control ~reset ~clock ~enable ~base ~max:color ~levels ~level in
-  { Control.red = control color.Color.red; blue = control color.Color.blue; green = control color.Color.green }
-
 let led_control_test =
-  let _clock = "clock" in
-  let _enable = "enable " in
-  let _reset = "_reset" in
-  let _level = "level" in
-  let clock = Signal.input _clock 1 in
-  let enable = Signal.input _enable 1 in
-  let reset = Signal.input _reset 1 in
-  let levels = 4 in
+  let module Levels = struct
+    let value = 4
+  end in
+  let scope = Scope.create ~flatten_design:true () in
+  let module Led = Led(Levels) in
+  let module Simulator = Cyclesim.With_interface (Led.I) (Led.O) in
   let base = 8 in
-  let level = Bits.num_bits_to_represent levels |> Signal.input _level in
   let color = { Color.red = 2; Color.blue = 4; Color.green = 7 } in
-  let control = led_control ~reset ~clock ~enable ~base ~levels ~level ~color in
-  let circuit =
-    Circuit.create_exn ~name:"pwm_control"
-      [
-        Signal.output "red" control.Control.red;
-        Signal.output "blue" control.Control.blue;
-        Signal.output "green" control.Control.green;
-      ]
-  in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
+  let waves, sim = Led.create ~color ~base scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
     done
   in
-  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
   let set_level v =
-    Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
-    2 * base |> cycles
-  in
-  set _enable;
+    List.iter (fun i ->
+      i := Bits.of_int ~width:(Bits.width !i) v)
+      [
+        inputs.level.blue;
+        inputs.level.green;
+        inputs.level.red;
+        ];
+  2 * base |> cycles in
+  set inputs.enable;
   set_level 1;
   set_level 2;
   set_level 3;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
 
-let led_top ~clock ~reset =
-  let base = 256 in
-  let levels = 16 in
-  let _10kHz = Clock.trigger_gen ~clock ~reset ~target:10_000 () in
-  let _1Hz = Clock.trigger_gen ~clock ~reset ~divider:10_000 ~enable:_10kHz () in
-  let level, _ = Clock.counter_with_carry ~base:levels ~reset ~increment:_1Hz ~clock:clock.wire () in
-  let orchid = { Color.red = 218; green = 112; blue = 214 } in
-  let control = led_control ~reset ~clock:clock.wire ~enable:_10kHz ~base ~levels ~level ~color:orchid in
-  control
+module LedTop = struct
+  module I = struct
+    type 'a t = {
+      clock : 'a;
+      reset : 'a; [@rtlsuffix "_"]
+    } [@@deriving sexp_of, hardcaml]
+  end
+  module Levels = struct
+    let value = 16
+  end
+  module Led = Led(Levels)
+
+  module O = Led.O
+
+  let create ~clock_freq scope input =
+    let base = 256 in
+    let clock = {Clock.wire=input.I.clock;Clock.clock=clock_freq} in
+    let reset = input.I.reset in
+    let _10kHz = Clock.trigger_gen ~clock ~reset ~target:10_000 () in
+    let _1Hz = Clock.trigger_gen ~clock ~reset ~divider:10_000 ~enable:_10kHz () in
+    let orchid = { Color.red = 218; green = 112; blue = 214 } in
+    let level, _ = Clock.counter_with_carry ~base:Levels.value ~reset ~increment:_1Hz ~clock:input.I.clock () in
+    Led.create ~base ~color:orchid scope {Led.I.clock = input.I.clock; enable = _10kHz; reset ; level = {Led.Level.blue = level; green=level;red = level} }
+
+  let hierarchical ~clock_freq scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    H.hierarchical ~scope ~name:"led" (create ~clock_freq) input
+end

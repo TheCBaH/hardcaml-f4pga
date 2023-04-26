@@ -86,13 +86,23 @@ let pwm ~scope ~clock ~reset ~enable ~base ~value () =
   let control = count <: value &: ~:reset in
   control
 
-module Pwm = struct
+module type Integer =
+sig
+  val value : int
+end
+
+module Bit8 : Integer  = struct
+  let value = 8
+end
+
+module Pwm (W: Integer) = struct
+  let bits = W.value
   module I = struct
     type 'a t = {
       clock : 'a; [@bits 1]
-      reset : 'a; [@bits 1] [@rtlsuffix "_"]
       enable : 'a; [@bits 1]
-      value : 'a; [@bits 8]
+      reset : 'a; [@bits 1] [@rtlsuffix "_"]
+      value : 'a; [@bits bits]
     }
     [@@deriving sexp_of, hardcaml]
   end
@@ -106,10 +116,12 @@ module Pwm = struct
 
   let hierarchical ~base scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"pulse" (create ~base) input
+    H.hierarchical ~scope ~name:"pwm" (create ~base) input
+
 end
 
 let pwm_test_1 =
+  let module Pwm = Pwm(Bit8) in
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Pwm.I) (Pwm.O) in
   let config =
@@ -148,6 +160,7 @@ let pwm_test_1 =
 
 let pwm_test_2 =
   let scope = Scope.create ~flatten_design:true () in
+  let module Pwm = Pwm(Bit8) in
   let module Simulator = Cyclesim.With_interface (Pwm.I) (Pwm.O) in
   let waves, sim = Pwm.create ~base:4 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
