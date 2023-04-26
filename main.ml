@@ -28,15 +28,14 @@ let build_led () =
   let module TopCircuit = Circuit.With_interface (Led.LedTop.I) (Led.LedTop.O) in
   let circuit = Led.LedTop.hierarchical ~clock_freq:10_000_000 scope |> TopCircuit.create_exn ~name in
   let output_mode = to_file name in
-  if false then begin
+  if false then (
     let scope = Scope.create ~flatten_design:true () in
     let circuit = Led.LedTop.hierarchical ~clock_freq:10_000_000 scope |> TopCircuit.create_exn ~name in
     let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
     for _i = 0 to 1000 do
       Cyclesim.cycle sim
     done;
-    Hardcaml_waveterm_interactive.run waves
-  end;
+    Hardcaml_waveterm_interactive.run waves);
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 
 let () =
