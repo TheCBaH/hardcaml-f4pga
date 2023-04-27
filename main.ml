@@ -17,7 +17,7 @@ let build_clock () =
 
 let build_reset () =
   let scope = Scope.create () in
-  let name = "reset" in
+  let name = "reset_top" in
   let circuit = Reset.hierarchical scope |> ResetCircuit.create_exn ~name in
   let output_mode = to_file name in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
