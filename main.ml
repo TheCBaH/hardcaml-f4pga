@@ -42,4 +42,4 @@ let build_led () =
 let () =
   build_clock ();
   build_reset ();
-  build_led ();
+  build_led ()

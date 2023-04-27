@@ -14,7 +14,7 @@ module top (
       powered <= 1'b1;
   end
 
-  reset_top RESET_MAIN (
+  reset_top RESET (
       .activate(reset_ctrl),
       .clock(clk),
       .reset(reset)

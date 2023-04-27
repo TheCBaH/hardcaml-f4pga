@@ -52,6 +52,8 @@ ${BUILD_DIR}/basys3.xdc: ${BUILD_DIR}/Basys-3-Master.xdc
 	 TARGET=$(basename $@) current_dir=${CURDIR} XDC=$(realpath $<)\
 	  SOURCES='$(realpath $(basename $@).v $(wildcard ${BUILD_DIR}/*.v))' TOP=top
 
+design: $(addsuffix .design, arty_35 basys3)
+
 %.download:
 	set -eux;file=build/$(basename $@)/top.bit;\
      . ${F4PGA_INSTALL_DIR}/${FPGA_FAM}/conda/etc/profile.d/conda.sh;\

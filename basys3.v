@@ -14,10 +14,10 @@ module top (
       powered <= 1'b1;
   end
 
-  reset RESET (
+  reset_top RESET (
+      .activate(reset_ctrl),
       .clock(clk),
-      .reset_(reset_ctrl),
-      .reset(pulse)
+      .reset(reset)
   );
 
   clock TOP (
