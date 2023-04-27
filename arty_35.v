@@ -20,7 +20,6 @@ module top (
       .reset(reset)
   );
 
-/*
   led_top TOP (
       .clock(clk),
       .reset_(reset),
@@ -28,6 +27,5 @@ module top (
       .green(led0_g),
       .red(led0_r),
   );
-*/
 
 endmodule
