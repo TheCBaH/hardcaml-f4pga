@@ -89,14 +89,16 @@ let counter_with_carry_test_2 =
 
 type clock = { clock : int; wire : Signal.t }
 
-let trigger_gen ?divider ?target ?enable ?(exact = true) ~reset ~clock () =
+let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock () =
+  let enable = Option.value ~default:Signal.vdd enable in
+  let always_enable =
+     Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
   let divider =
-    match (enable, target, divider) with
+    match (always_enable, target, divider) with
     | _, None, Some divider -> divider
-    | None, Some target, None -> clock.clock / target
+    | true, Some target, None -> clock.clock / target
     | _ -> assert false
   in
-  let enable = Option.value ~default:Signal.vdd enable in
   assert (divider > 0);
   let bits = Base.Int.ceil_log2 divider in
   let divider = if exact then divider else 1 lsl bits in
@@ -113,25 +115,60 @@ let trigger_gen ?divider ?target ?enable ?(exact = true) ~reset ~clock () =
     count <== reg spec next;
     pulse
 
+module Trigger = struct
+  module I = struct
+    type 'a t = { clock : 'a; _reset: 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { pulse : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
+    ignore scope;
+    let clock = {wire=input.clock;clock=clock_freq} in
+    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock () }
+
+  let hierarchical ~clock_freq ?divider ?target ?exact scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    H.hierarchical ~scope ~name:"trigger" (create ~clock_freq ?divider ?target ?exact)  input
+end
+
+module TriggerWithEnable = struct
+  module I = struct
+    type 'a t = { clock : 'a; enable: 'a; _reset: 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { pulse : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
+    ignore scope;
+    let clock = {wire=input.clock;clock=clock_freq} in
+    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock () }
+
+  let hierarchical ~clock_freq ?divider ?target ?exact scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    H.hierarchical ~scope ~name:"trigger_with_enable" (create ~clock_freq ?divider ?target ?exact)  input
+end
+
 let trigger_gen_test =
-  let _clock = "clock" in
-  let _reset = "_reset" in
-  let clock = { clock = 10; wire = Signal.input _clock 1 } in
-  let reset = Signal.input _reset 1 in
-  let pulse = trigger_gen ~clock ~reset ~target:2 () in
-  let circuit = Circuit.create_exn ~name:"trigger_gen" [ Signal.output "pulse" pulse ] in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
-  let clear wire = Cyclesim.in_port sim wire := Bits.gnd in
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (Trigger.I) (Trigger.O) in
+  let waves, sim = Trigger.create ~clock_freq:10 ~target:2 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
     done
   in
   cycles 10;
-  set _reset;
+  set inputs._reset;
   cycles 2;
-  clear _reset;
+  clear inputs._reset;
   cycles 15;
   Hardcaml_waveterm.Waveform.print ~display_height:8 ~display_width:80 ~wave_width:0 waves
 
@@ -325,7 +362,7 @@ module Reset = struct
   end
 
   let create (scope : Scope.t) (input : Signal.t I.t) =
-    let pulse = Util.Pulse.hierarchical scope ~length:2 { Util.Pulse.I.clock = input.clock; reset = input.activate } in
+    let pulse = Util.Pulse.hierarchical scope ~length:32 { Util.Pulse.I.clock = input.clock; reset = input.activate } in
     { O.reset = pulse.Util.Pulse.O.pulse }
 
   let hierarchical scope input =

@@ -251,16 +251,15 @@ module LedTop = struct
 
   let create ~clock_freq scope input =
     let base = 256 in
-    let clock = { Clock.wire = input.I.clock; Clock.clock = clock_freq } in
     let reset = input.I.reset in
-    let _10kHz = Clock.trigger_gen ~clock ~reset ~target:10_000 () in
-    let _1Hz = Clock.trigger_gen ~clock ~reset ~divider:10_000 ~enable:_10kHz () in
+    let _10kHz = Clock.Trigger.hierarchical ~clock_freq  ~target:10_000 scope {Clock.Trigger.I._reset=input.I.reset; clock=input.I.clock } in
+    let _1Hz = Clock.TriggerWithEnable.hierarchical ~clock_freq ~divider:10_000 scope {Clock.TriggerWithEnable.I._reset=input.I.reset; clock=input.I.clock; enable=_10kHz.pulse } in
     let orchid = { Color.red = 218; green = 112; blue = 214 } in
-    let level, _ = Clock.counter_with_carry ~base:Levels.value ~reset ~increment:_1Hz ~clock:input.I.clock () in
+    let level, _ = Clock.counter_with_carry ~base:Levels.value ~reset ~increment:_1Hz.pulse  ~clock:input.I.clock () in
     Led.create ~base ~color:orchid scope
       {
         Led.I.clock = input.I.clock;
-        enable = _10kHz;
+        enable = _10kHz.pulse;
         reset;
         level = { Led.Level.l_blue = level; l_green = level; l_red = level };
       }
