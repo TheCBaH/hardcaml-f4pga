@@ -89,10 +89,9 @@ let counter_with_carry_test_2 =
 
 type clock = { clock : int; wire : Signal.t }
 
-let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock () =
+let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock scope =
   let enable = Option.value ~default:Signal.vdd enable in
-  let always_enable =
-     Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
+  let always_enable = Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
   let divider =
     match (always_enable, target, divider) with
     | _, None, Some divider -> divider
@@ -106,8 +105,9 @@ let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock () =
   if divider = 1 then clock.wire
   else
     let open Signal in
+    let ( -- ) = Scope.naming scope in
     let spec = Reg_spec.create ~clock:clock.wire ~clear:reset () in
-    let count = wire bits in
+    let count = wire bits -- "count" in
     let pulse = count ==:. limit in
     let incr = count +:. 1 in
     let next = if divider = 1 lsl bits then incr else mux2 pulse (zero bits) incr in
@@ -117,7 +117,7 @@ let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock () =
 
 module Trigger = struct
   module I = struct
-    type 'a t = { clock : 'a; _reset: 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; _reset : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -125,19 +125,21 @@ module Trigger = struct
   end
 
   let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
-    ignore scope;
-    let clock = {wire=input.clock;clock=clock_freq} in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock () }
+    let clock = { wire = input.clock; clock = clock_freq } in
+    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    let name = Printf.sprintf "trigger_%u_%u_%u_%B" clock_freq (Option.value ~default:0 divider) (Option.value ~default:0 target) (Option.value ~default:false exact) in
-    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact)  input
+    let name =
+      Printf.sprintf "trigger_%u_%u_%u_%B" clock_freq (Option.value ~default:0 divider) (Option.value ~default:0 target)
+        (Option.value ~default:false exact)
+    in
+    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact) input
 end
 
 module TriggerWithEnable = struct
   module I = struct
-    type 'a t = { clock : 'a; enable: 'a; _reset: 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; _reset : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -145,20 +147,23 @@ module TriggerWithEnable = struct
   end
 
   let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
-    ignore scope;
-    let clock = {wire=input.clock;clock=clock_freq} in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock () }
+    let clock = { wire = input.clock; clock = clock_freq } in
+    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    let name = Printf.sprintf "trigger_with_enable_%u_%B" (Option.value ~default:0 divider) (Option.value ~default:false exact) in
-    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact)  input
+    let name =
+      Printf.sprintf "trigger_with_enable_%u_%B" (Option.value ~default:0 divider) (Option.value ~default:false exact)
+    in
+    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact) input
 end
 
 let trigger_gen_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Trigger.I) (Trigger.O) in
-  let waves, sim = Trigger.create ~clock_freq:10 ~target:2 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let waves, sim =
+    Trigger.create ~clock_freq:10 ~target:2 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
+  in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
@@ -317,7 +322,9 @@ let multi_counter_test =
 let clock_top ~clock ~reset ~refresh ~tick =
   let open Signal in
   let scope = Scope.create () in
-  let tick = Trigger.create ~clock_freq:clock.clock ~target:tick scope {Trigger.I._reset=reset; clock=clock.wire } in
+  let tick =
+    Trigger.create ~clock_freq:clock.clock ~target:tick scope { Trigger.I._reset = reset; clock = clock.wire }
+  in
   let digits = multi_counter ~increment:tick.pulse ~clock:clock.wire ~reset ~digits:4 () in
   let digits =
     List.mapi
@@ -326,7 +333,10 @@ let clock_top ~clock ~reset ~refresh ~tick =
         { data = d; enable = vdd; dot })
       digits
   in
-  let refresh = Trigger.create ~clock_freq:clock.clock ~target:refresh ~exact:false scope {Trigger.I._reset=reset; clock=clock.wire} in
+  let refresh =
+    Trigger.create ~clock_freq:clock.clock ~target:refresh ~exact:false scope
+      { Trigger.I._reset = reset; clock = clock.wire }
+  in
   let anode, segment, dot = display ~clock:clock.wire ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 
