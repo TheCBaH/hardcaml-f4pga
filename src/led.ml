@@ -205,7 +205,8 @@ module Led (Levels : Util.Integer) = struct
 
   let hierarchical ~base ~color scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"led" (create ~base ~color) input
+    let name = Printf.sprintf "led_%u_%u_%u_%u" base color.Color.blue color.green color.red in
+    H.hierarchical ~scope ~name (create ~base ~color) input
 end
 
 let led_control_test =

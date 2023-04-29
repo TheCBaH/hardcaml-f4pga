@@ -27,8 +27,9 @@ module Pulse = struct
     { O.pulse = pulse ~scope ~reset:input.reset ~clock:input.clock ~length () }
 
   let hierarchical ~length scope input =
+    let name = Printf.sprintf "pulse_%u" length in
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"pulse" (create ~length) input
+    H.hierarchical ~scope ~name (create ~length) input
 end
 
 let pulse_test =
@@ -116,7 +117,8 @@ module Pwm (W : Integer) = struct
 
   let hierarchical ~base scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"pwm" (create ~base) input
+    let name = Printf.sprintf "pwm_%u" base in
+    H.hierarchical ~scope ~name (create ~base) input
 end
 
 let pwm_test_1 =

@@ -131,7 +131,8 @@ module Trigger = struct
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"trigger" (create ~clock_freq ?divider ?target ?exact)  input
+    let name = Printf.sprintf "trigger_%u_%u_%u_%B" clock_freq (Option.value ~default:0 divider) (Option.value ~default:0 target) (Option.value ~default:false exact) in
+    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact)  input
 end
 
 module TriggerWithEnable = struct
@@ -150,7 +151,8 @@ module TriggerWithEnable = struct
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"trigger_with_enable" (create ~clock_freq ?divider ?target ?exact)  input
+    let name = Printf.sprintf "trigger_with_enable_%u_%B" (Option.value ~default:0 divider) (Option.value ~default:false exact) in
+    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact)  input
 end
 
 let trigger_gen_test =
@@ -314,8 +316,9 @@ let multi_counter_test =
 
 let clock_top ~clock ~reset ~refresh ~tick =
   let open Signal in
-  let tick = trigger_gen ~clock ~reset ~target:tick () in
-  let digits = multi_counter ~increment:tick ~clock:clock.wire ~reset ~digits:4 () in
+  let scope = Scope.create () in
+  let tick = Trigger.create ~clock_freq:clock.clock ~target:tick scope {Trigger.I._reset=reset; clock=clock.wire } in
+  let digits = multi_counter ~increment:tick.pulse ~clock:clock.wire ~reset ~digits:4 () in
   let digits =
     List.mapi
       (fun i d ->
@@ -323,8 +326,8 @@ let clock_top ~clock ~reset ~refresh ~tick =
         { data = d; enable = vdd; dot })
       digits
   in
-  let refresh = trigger_gen ~clock ~reset ~target:refresh ~exact:false () in
-  let anode, segment, dot = display ~clock:clock.wire ~digits ~reset ~next:refresh in
+  let refresh = Trigger.create ~clock_freq:clock.clock ~target:refresh ~exact:false scope {Trigger.I._reset=reset; clock=clock.wire} in
+  let anode, segment, dot = display ~clock:clock.wire ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 
 let clock_top_test =
