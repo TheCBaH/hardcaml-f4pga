@@ -119,7 +119,7 @@ let pwm_control ~scope ~clock ~reset ~enable ~base ~max ~levels ~level =
   control
 
 module PwmControl (Levels : Util.Integer) = struct
-  let bits = Bits.num_bits_to_represent Levels.value
+  let bits = Levels.value - 1 |> Bits.num_bits_to_represent
 
   module I = struct
     type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] level : 'a [@bits bits] }
@@ -139,7 +139,8 @@ module PwmControl (Levels : Util.Integer) = struct
 
   let hierarchical ~base ~max scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"pwm_control" (create ~base ~max) input
+    let name = Printf.sprintf "pwm_control_%u_%u_%u" Levels.value base max in
+    H.hierarchical ~scope ~name (create ~base ~max) input
 end
 
 let pwm_control_test =
@@ -173,7 +174,7 @@ module Color = struct
 end
 
 module Led (Levels : Util.Integer) = struct
-  let bits = Bits.num_bits_to_represent Levels.value
+  let bits = Levels.value - 1 |> Bits.num_bits_to_represent
 
   module Level = struct
     type 'a t = { l_blue : 'a; [@bits bits] l_green : 'a; [@bits bits] l_red : 'a [@bits bits] }
@@ -194,7 +195,7 @@ module Led (Levels : Util.Integer) = struct
   let create ~base ~color scope (input : Signal.t I.t) =
     let control color level =
       let pwm_in = { PwmControl.I.reset = input.reset; level; clock = input.clock; enable = input.enable } in
-      let pwm_out = PwmControl.create ~base ~max:color scope pwm_in in
+      let pwm_out = PwmControl.hierarchical ~base ~max:color scope pwm_in in
       pwm_out.PwmControl.O.control
     in
     {
