@@ -117,7 +117,7 @@ let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock scope =
 
 module Trigger = struct
   module I = struct
-    type 'a t = { clock : 'a; _reset : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -126,7 +126,7 @@ module Trigger = struct
 
   let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
     let clock = { wire = input.clock; clock = clock_freq } in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock scope }
+    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input.reset ~clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -139,7 +139,7 @@ end
 
 module TriggerWithEnable = struct
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; _reset : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -148,7 +148,7 @@ module TriggerWithEnable = struct
 
   let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
     let clock = { wire = input.clock; clock = clock_freq } in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input._reset ~clock scope }
+    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input.reset ~clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -173,9 +173,9 @@ let trigger_gen_test =
     done
   in
   cycles 10;
-  set inputs._reset;
+  set inputs.reset;
   cycles 2;
-  clear inputs._reset;
+  clear inputs.reset;
   cycles 15;
   Hardcaml_waveterm.Waveform.print ~display_height:8 ~display_width:80 ~wave_width:0 waves
 
@@ -322,9 +322,7 @@ let multi_counter_test =
 let clock_top ~clock ~reset ~refresh ~tick =
   let open Signal in
   let scope = Scope.create () in
-  let tick =
-    Trigger.create ~clock_freq:clock.clock ~target:tick scope { Trigger.I._reset = reset; clock = clock.wire }
-  in
+  let tick = Trigger.create ~clock_freq:clock.clock ~target:tick scope { Trigger.I.reset; clock = clock.wire } in
   let digits = multi_counter ~increment:tick.pulse ~clock:clock.wire ~reset ~digits:4 () in
   let digits =
     List.mapi
@@ -334,8 +332,7 @@ let clock_top ~clock ~reset ~refresh ~tick =
       digits
   in
   let refresh =
-    Trigger.create ~clock_freq:clock.clock ~target:refresh ~exact:false scope
-      { Trigger.I._reset = reset; clock = clock.wire }
+    Trigger.create ~clock_freq:clock.clock ~target:refresh ~exact:false scope { Trigger.I.reset; clock = clock.wire }
   in
   let anode, segment, dot = display ~clock:clock.wire ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
