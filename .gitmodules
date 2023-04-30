@@ -4,3 +4,9 @@
 [submodule "modules/hardcaml_verilator"]
 	path = modules/hardcaml_verilator
 	url = https://github.com/janestreet/hardcaml_verilator.git
+[submodule "modules/hardcaml"]
+	path = modules/hardcaml
+	url = https://github.com/janestreet/hardcaml.git
+[submodule "modules/hardcaml_waveterm"]
+	path = modules/hardcaml_waveterm
+	url = https://github.com/janestreet/hardcaml_waveterm
