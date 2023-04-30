@@ -1,5 +1,5 @@
 (executable
  (name main)
- (libraries rtl hardcaml hardcaml_waveterm hardcaml_waveterm.interactive)
+ (libraries rtl hardcaml hardcaml_verilator hardcaml_waveterm hardcaml_waveterm.interactive)
  (preprocess
   (pps ppx_jane ppx_deriving_hardcaml)))

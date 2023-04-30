@@ -1,3 +1,6 @@
 [submodule "modules/ppx_deriving_hardcaml"]
 	path = modules/ppx_deriving_hardcaml
 	url = https://github.com/janestreet/ppx_deriving_hardcaml.git
+[submodule "modules/hardcaml_verilator"]
+	path = modules/hardcaml_verilator
+	url = https://github.com/janestreet/hardcaml_verilator.git
