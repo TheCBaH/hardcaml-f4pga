@@ -85,19 +85,22 @@ opam switch create $OCAML_VERSION
 opam install -y depext
 PACKAGES="\
  dune\
+ ocaml-lsp-server\
+ ocamlformat-rpc\
+ utop\
+"
+HARDCAML="\
  hardcaml\
  hardcaml_c\
  hardcaml_circuits\
  hardcaml_verilator\
  hardcaml_waveterm\
  hardcaml_xilinx\
- ocaml-lsp-server\
- ocamlformat-rpc\
- utop\
 "
+opam depext ${PACKAGES} ${HARDCAML}
+opam install ${PACKAGES} ${HARDCAML}
+opam install ${HARDCAML}
 
-opam depext ${PACKAGES}
-opam install ${PACKAGES}
 opam clean --repo-cache
 opam list
 chown -R ${USERNAME} $OPAMROOT
