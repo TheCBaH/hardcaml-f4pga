@@ -99,7 +99,7 @@ HARDCAML="\
 "
 opam depext ${PACKAGES} ${HARDCAML}
 opam install ${PACKAGES} ${HARDCAML}
-opam install ${HARDCAML}
+opam remove ${HARDCAML}
 
 opam clean --repo-cache
 opam list
