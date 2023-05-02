@@ -87,6 +87,27 @@ let counter_with_carry_test_2 =
   cycles 4;
   Hardcaml_waveterm.Waveform.print ~display_height:16 ~display_width:100 ~wave_width:0 waves
 
+module Counter (Bits : Util.Integer) = struct
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
+  end
+
+  let bits = Bits.value
+
+  module O = struct
+    type 'a t = { counter : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create (_scope : Scope.t) (input : Signal.t I.t) =
+    let cary, counter = counter_with_carry ~bits ~reset:input.reset ~increment:input.enable ~clock:input.clock () in
+    ignore cary;
+    { O.counter }
+
+  let hierarchical scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    H.hierarchical ~scope ~name:"counter" create input
+end
+
 type clock = { clock : int; wire : Signal.t }
 
 let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock scope =
@@ -148,7 +169,7 @@ module TriggerWithEnable = struct
 
   let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
     let clock = { wire = input.clock; clock = clock_freq } in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input.reset ~clock scope }
+    { O.pulse = trigger_gen ?divider ?target ?exact ~enable:input.enable ~reset:input.reset ~clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in

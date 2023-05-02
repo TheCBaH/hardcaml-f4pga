@@ -28,7 +28,7 @@ let build_led () =
   let clock_freq = 100_000_000 in
   let refresh = 10_000 in
   let tick = 1 in
-  if true then (
+  if false then (
     let cycles = 100_000 in
     let scope = Scope.create ~auto_label_hierarchical_ports:true ~flatten_design:true () in
     let simulator circuit =
@@ -40,12 +40,9 @@ let build_led () =
         Simulator.create ~config:Cyclesim.Config.trace_all circuit
     in
     let waves, sim =
-      let (clock_freq,refresh,tick) =
-      if false then
-        (clock_freq,refresh,tick)
-      else
-        (20_000,10_000,40) in
-      Led.LedTop.create ~clock_freq ~refresh ~tick scope |> simulator |> Hardcaml_waveterm.Waveform.create in
+      let clock_freq, refresh, tick = if false then (clock_freq, refresh, tick) else (20_000, 10_000, 40) in
+      Led.LedTop.create ~clock_freq ~refresh ~tick scope |> simulator |> Hardcaml_waveterm.Waveform.create
+    in
     for _i = 0 to cycles do
       Cyclesim.cycle sim
     done;
