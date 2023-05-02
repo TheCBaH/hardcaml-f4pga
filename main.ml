@@ -26,24 +26,32 @@ let build_led () =
   let scope = Scope.create () in
   let name = "led_top" in
   let clock_freq = 100_000_000 in
-  if false then (
-    let cycles = 10_000_000 in
+  let refresh = 10_000 in
+  let tick = 1 in
+  if true then (
+    let cycles = 100_000 in
     let scope = Scope.create ~auto_label_hierarchical_ports:true ~flatten_design:true () in
     let simulator circuit =
-      if cycles > 1_000 then
+      if cycles > 100_000 then
         let module Simulator = Hardcaml_verilator.With_interface (Led.LedTop.I) (Led.LedTop.O) in
         Simulator.create ~clock_names:[ "clock" ] ~config:Cyclesim.Config.trace_all ~verbose:true circuit
       else
         let module Simulator = Cyclesim.With_interface (Led.LedTop.I) (Led.LedTop.O) in
         Simulator.create ~config:Cyclesim.Config.trace_all circuit
     in
-    let waves, sim = Led.LedTop.create ~clock_freq scope |> simulator |> Hardcaml_waveterm.Waveform.create in
+    let waves, sim =
+      let (clock_freq,refresh,tick) =
+      if false then
+        (clock_freq,refresh,tick)
+      else
+        (20_000,10_000,40) in
+      Led.LedTop.create ~clock_freq ~refresh ~tick scope |> simulator |> Hardcaml_waveterm.Waveform.create in
     for _i = 0 to cycles do
       Cyclesim.cycle sim
     done;
     Hardcaml_waveterm_interactive.run waves);
   let module TopCircuit = Circuit.With_interface (Led.LedTop.I) (Led.LedTop.O) in
-  let circuit = Led.LedTop.hierarchical ~clock_freq scope |> TopCircuit.create_exn ~name in
+  let circuit = Led.LedTop.hierarchical ~clock_freq ~refresh ~tick scope |> TopCircuit.create_exn ~name in
   let output_mode = to_directory in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 

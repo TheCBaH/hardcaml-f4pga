@@ -251,15 +251,16 @@ module LedTop = struct
   module Led = Led (Levels)
   module O = Led.O
 
-  let create ~clock_freq scope input =
+  let create ~clock_freq ~refresh ~tick scope input =
     let base = 256 in
     let reset = input.I.reset in
     let _10kHz =
-      Clock.Trigger.hierarchical ~clock_freq ~target:10_000 scope
+      Clock.Trigger.hierarchical ~clock_freq ~target:refresh scope
         { Clock.Trigger.I.reset = input.I.reset; clock = input.I.clock }
     in
     let _1Hz =
-      Clock.TriggerWithEnable.hierarchical ~clock_freq ~divider:10_000 scope
+      let divider = refresh / tick in
+      Clock.TriggerWithEnable.hierarchical ~clock_freq ~divider scope
         { Clock.TriggerWithEnable.I.reset = input.I.reset; clock = input.I.clock; enable = _10kHz.pulse }
     in
     let orchid = { Color.red = 218; green = 112; blue = 214 } in
@@ -272,7 +273,7 @@ module LedTop = struct
         level = { Led.Level.l_blue = level; l_green = level; l_red = level };
       }
 
-  let hierarchical ~clock_freq scope input =
+  let hierarchical ~clock_freq ~refresh ~tick scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"led" (create ~clock_freq) input
+    H.hierarchical ~scope ~name:"led" (create ~clock_freq ~refresh ~tick) input
 end
