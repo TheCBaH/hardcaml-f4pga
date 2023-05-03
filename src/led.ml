@@ -255,13 +255,13 @@ module LedTop = struct
     let base = 256 in
     let reset = input.I.reset in
     let _10kHz =
-      Clock.Trigger.hierarchical ~clock_freq ~target:refresh scope
-        { Clock.Trigger.I.reset = input.I.reset; clock = input.I.clock }
+      Util.Trigger.hierarchical ~clock_freq ~target:refresh scope
+        { reset = input.reset; clock = input.clock }
     in
     let _1Hz =
       let divider = refresh / tick in
-      Clock.TriggerWithEnable.hierarchical ~divider scope
-        { Clock.TriggerWithEnable.I.reset = input.I.reset; clock = input.I.clock; enable = _10kHz.pulse }
+      Util.TriggerWithEnable.hierarchical ~divider scope
+        { reset = input.reset; clock = input.clock; enable = _10kHz.pulse }
     in
     let orchid = { Color.red = 218; green = 112; blue = 214 } in
     let module CounterBits = struct
