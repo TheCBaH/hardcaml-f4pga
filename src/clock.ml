@@ -1,116 +1,5 @@
 open Hardcaml
 
-let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
-  let base_bits = Base.Int.ceil_log2 base in
-  let bits = Option.value ~default:base_bits bits in
-  assert (bits >= base_bits);
-  let spec = Reg_spec.create ~clock ~clear:reset () in
-  let open Signal in
-  let count_next = wire bits in
-  let limit = base - 1 in
-  let count = reg spec count_next in
-  let cary = increment &: (count ==:. limit) in
-  let incr = mux2 increment (count +:. 1) count in
-  let next = if base = 1 lsl bits then incr else mux2 cary (zero bits) incr in
-  count_next <== next;
-  (count, cary)
-
-module Counter (Bits : Util.Integer) = struct
-  module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
-  end
-
-  let bits = Bits.value
-
-  module O = struct
-    type 'a t = { count : 'a; [@bits bits] cary : 'a } [@@deriving sexp_of, hardcaml]
-  end
-
-  let create ?base (_scope : Scope.t) (input : Signal.t I.t) =
-    let count, cary = counter_with_carry ~bits ~reset:input.reset ~increment:input.enable ~clock:input.clock ?base () in
-    { O.count; cary }
-
-  let hierarchical ?base scope input =
-    let module H = Hierarchy.In_scope (I) (O) in
-    let name = Printf.sprintf "counter_%u" Bits.value in
-    let name = match base with Some base -> Printf.sprintf "%s_%u" name base | None -> name in
-    H.hierarchical ~scope ~name (create ?base) input
-end
-
-let counter_with_carry_test_1 =
-  let scope = Scope.create ~flatten_design:true () in
-  let module CounterBits = struct
-    let value = 3
-  end in
-  let module Counter = Counter (CounterBits) in
-  let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
-  let waves, sim = Counter.create ~base:5 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let clear wire = wire := Bits.gnd in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 2;
-  set inputs.enable;
-  cycles 5;
-  clear inputs.enable;
-  cycles 3;
-  set inputs.enable;
-  cycles 7;
-  clear inputs.enable;
-  cycles 1;
-  set inputs.enable;
-  cycles 2;
-  clear inputs.enable;
-  cycles 4;
-  set inputs.enable;
-  cycles 7;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
-
-let counter_with_carry_test_2 =
-  let scope = Scope.create ~flatten_design:true () in
-  let module CounterBits = struct
-    let value = 4
-  end in
-  let module Counter = Counter (CounterBits) in
-  let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
-  let circuit input =
-    let count0 = Counter.create scope input in
-    let count1 = Counter.create scope { input with enable = count0.cary } in
-    let open Signal in
-    count0.count -- "count0" |> ignore;
-    count0.cary -- "cary0" |> ignore;
-    count1
-  in
-  let waves, sim = circuit |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let clear wire = wire := Bits.gnd in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 2;
-  set inputs.enable;
-  cycles 5;
-  clear inputs.enable;
-  cycles 3;
-  set inputs.enable;
-  cycles 12;
-  clear inputs.enable;
-  cycles 1;
-  set inputs.enable;
-  cycles 2;
-  set inputs.reset;
-  cycles 2;
-  clear inputs.reset;
-  cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
-
 type clock = { clock : int; wire : Signal.t }
 
 let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock scope =
@@ -356,7 +245,7 @@ let multi_counter ?base ?bits ~digits ~reset ~increment ~clock () =
   let rec make counters increment left =
     if left == 0 then List.rev counters
     else
-      let count, cary = counter_with_carry ?base ?bits ~reset ~increment ~clock () in
+      let count, cary = Util.counter_with_carry ?base ?bits ~reset ~increment ~clock () in
       make (count :: counters) cary (left - 1)
   in
   make [] increment digits

@@ -267,7 +267,7 @@ module LedTop = struct
     let module CounterBits = struct
       let value = 4
     end in
-    let module Counter = Clock.Counter (CounterBits) in
+    let module Counter = Util.Counter (CounterBits) in
     let level =
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
