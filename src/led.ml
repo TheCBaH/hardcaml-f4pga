@@ -260,7 +260,7 @@ module LedTop = struct
     in
     let _1Hz =
       let divider = refresh / tick in
-      Clock.TriggerWithEnable.hierarchical ~clock_freq ~divider scope
+      Clock.TriggerWithEnable.hierarchical ~divider scope
         { Clock.TriggerWithEnable.I.reset = input.I.reset; clock = input.I.clock; enable = _10kHz.pulse }
     in
     let orchid = { Color.red = 218; green = 112; blue = 214 } in

@@ -132,12 +132,11 @@ let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock scope =
     let ( -- ) = Scope.naming scope in
     let spec = Reg_spec.create ~clock:clock.wire ~clear:reset () in
     let count = wire bits -- "count" in
-    let pulse = count ==:. limit in
-    let incr = count +:. 1 in
-    let next = if divider = 1 lsl bits then incr else mux2 pulse (zero bits) incr in
-    let next = mux2 enable next count in
+    let cary = enable &: (count ==:. limit) in
+    let incr = mux2 enable (count +:. 1) count in
+    let next = if divider = 1 lsl bits then incr else mux2 cary (zero bits) incr in
     count <== reg spec next;
-    pulse
+    cary
 
 module Trigger = struct
   module I = struct
@@ -161,32 +160,13 @@ module Trigger = struct
     H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact) input
 end
 
-module TriggerWithEnable = struct
-  module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
-  end
-
-  module O = struct
-    type 'a t = { pulse : 'a } [@@deriving sexp_of, hardcaml]
-  end
-
-  let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
-    let clock = { wire = input.clock; clock = clock_freq } in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~enable:input.enable ~reset:input.reset ~clock scope }
-
-  let hierarchical ~clock_freq ?divider ?target ?exact scope input =
-    let module H = Hierarchy.In_scope (I) (O) in
-    let name =
-      Printf.sprintf "trigger_with_enable_%u_%B" (Option.value ~default:0 divider) (Option.value ~default:false exact)
-    in
-    H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact) input
-end
-
-let trigger_gen_test =
+let trigger_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Trigger.I) (Trigger.O) in
   let waves, sim =
-    Trigger.create ~clock_freq:10 ~target:2 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
+    Trigger.create ~clock_freq:10 ~target:2 scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
   in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
@@ -196,12 +176,72 @@ let trigger_gen_test =
       Cyclesim.cycle sim
     done
   in
-  cycles 10;
+  cycles 7;
   set inputs.reset;
   cycles 2;
   clear inputs.reset;
+  cycles 8;
+  set inputs.reset;
+  cycles 2;
+  clear inputs.reset;
+  cycles 10;
+  Hardcaml_waveterm.Waveform.print ~display_height:11 ~display_width:88 ~wave_width:0 waves
+
+module TriggerWithEnable = struct
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { pulse : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create ~divider (scope : Scope.t) (input : Signal.t I.t) =
+    let clock = { wire = input.clock; clock = 1 } in
+    { O.pulse = trigger_gen ~divider ~enable:input.enable ~reset:input.reset ~clock scope }
+
+  let hierarchical ~divider scope input =
+    let module H = Hierarchy.In_scope (I) (O) in
+    let name = Printf.sprintf "trigger_with_enable_%u" divider in
+    H.hierarchical ~scope ~name (create ~divider) input
+end
+
+let trigger_with_enable_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (TriggerWithEnable.I) (TriggerWithEnable.O) in
+  let waves, sim =
+    TriggerWithEnable.create ~divider:3 scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
+  in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let cycles n =
+    for _ = 0 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  cycles 1;
+  set inputs.enable;
+  cycles 5;
+  set inputs.reset;
+  cycles 2;
+  clear inputs.reset;
+  cycles 5;
+  clear inputs.enable;
+  cycles 2;
+  set inputs.enable;
+  cycles 1;
+  clear inputs.enable;
+  cycles 1;
+  set inputs.reset;
+  cycles 1;
+  clear inputs.reset;
+  cycles 1;
+  set inputs.enable;
   cycles 15;
-  Hardcaml_waveterm.Waveform.print ~display_height:8 ~display_width:80 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:88 ~wave_width:0 waves
 
 let segment_encode ~digit =
   let display =
