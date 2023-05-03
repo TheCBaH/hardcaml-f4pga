@@ -23,7 +23,7 @@ module Counter (Bits : Util.Integer) = struct
   let bits = Bits.value
 
   module O = struct
-    type 'a t = { count : 'a [@bits bits] ; cary : 'a} [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a; [@bits bits] cary : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create ?base (_scope : Scope.t) (input : Signal.t I.t) =
@@ -33,9 +33,7 @@ module Counter (Bits : Util.Integer) = struct
   let hierarchical ?base scope input =
     let module H = Hierarchy.In_scope (I) (O) in
     let name = Printf.sprintf "counter_%u" Bits.value in
-    let name = match base with
-    Some base -> Printf.sprintf "%s_%u" name base
-    | None -> name in
+    let name = match base with Some base -> Printf.sprintf "%s_%u" name base | None -> name in
     H.hierarchical ~scope ~name (create ?base) input
 end
 
@@ -81,11 +79,12 @@ let counter_with_carry_test_2 =
   let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
   let circuit input =
     let count0 = Counter.create scope input in
-    let count1 = Counter.create scope {input with enable=count0.cary} in
+    let count1 = Counter.create scope { input with enable = count0.cary } in
     let open Signal in
     count0.count -- "count0" |> ignore;
     count0.cary -- "cary0" |> ignore;
-    count1 in
+    count1
+  in
   let waves, sim = circuit |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in

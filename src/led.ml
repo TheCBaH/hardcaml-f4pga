@@ -264,13 +264,20 @@ module LedTop = struct
         { Clock.TriggerWithEnable.I.reset = input.I.reset; clock = input.I.clock; enable = _10kHz.pulse }
     in
     let orchid = { Color.red = 218; green = 112; blue = 214 } in
-    let level, _ = Clock.counter_with_carry ~base:Levels.value ~reset ~increment:_1Hz.pulse ~clock:input.I.clock () in
+    let module CounterBits = struct
+      let value = 4
+    end in
+    let module Counter = Clock.Counter (CounterBits) in
+    let level =
+      Counter.hierarchical ~base:Levels.value scope
+        { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
+    in
     Led.create ~base ~color:orchid scope
       {
         Led.I.clock = input.I.clock;
         enable = _10kHz.pulse;
         reset;
-        level = { Led.Level.l_blue = level; l_green = level; l_red = level };
+        level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count };
       }
 
   let hierarchical ~clock_freq ~refresh ~tick scope input =
