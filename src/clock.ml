@@ -1,25 +1,23 @@
 open Hardcaml
 
-type clock = { clock : int; wire : Signal.t }
-
-let trigger_gen ?divider ?target ?(exact = true) ?enable ~reset ~clock scope =
+let trigger_gen ?divider ?target ?(exact = true) ?enable ?clock_freq ~reset ~clock scope =
   let enable = Option.value ~default:Signal.vdd enable in
   let always_enable = Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
   let divider =
-    match (always_enable, target, divider) with
-    | _, None, Some divider -> divider
-    | true, Some target, None -> clock.clock / target
+    match (always_enable, target, divider, clock_freq) with
+    | _, None, Some divider,_ -> divider
+    | true, Some target, None,Some clock -> clock / target
     | _ -> assert false
   in
   assert (divider > 0);
   let bits = Base.Int.ceil_log2 divider in
   let divider = if exact then divider else 1 lsl bits in
   let limit = divider - 1 in
-  if divider = 1 then clock.wire
+  if divider = 1 then clock
   else
     let open Signal in
     let ( -- ) = Scope.naming scope in
-    let spec = Reg_spec.create ~clock:clock.wire ~clear:reset () in
+    let spec = Reg_spec.create ~clock:clock ~clear:reset () in
     let count = wire bits -- "count" in
     let cary = enable &: (count ==:. limit) in
     let incr = mux2 enable (count +:. 1) count in
@@ -36,9 +34,8 @@ module Trigger = struct
     type 'a t = { pulse : 'a } [@@deriving sexp_of, hardcaml]
   end
 
-  let create ~clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
-    let clock = { wire = input.clock; clock = clock_freq } in
-    { O.pulse = trigger_gen ?divider ?target ?exact ~reset:input.reset ~clock scope }
+  let create ?clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
+    { O.pulse = trigger_gen ?divider ?target ?exact ?clock_freq ~reset:input.reset ~clock:input.clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -86,8 +83,7 @@ module TriggerWithEnable = struct
   end
 
   let create ~divider (scope : Scope.t) (input : Signal.t I.t) =
-    let clock = { wire = input.clock; clock = 1 } in
-    { O.pulse = trigger_gen ~divider ~enable:input.enable ~reset:input.reset ~clock scope }
+    { O.pulse = trigger_gen ~divider ~enable:input.enable ~reset:input.reset ~clock:input.clock scope }
 
   let hierarchical ~divider scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -272,11 +268,11 @@ let multi_counter_test =
   cycles 12;
   Hardcaml_waveterm.Waveform.print ~display_height:12 ~display_width:80 ~wave_width:0 waves
 
-let clock_top ~clock ~reset ~refresh ~tick =
+let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
   let open Signal in
   let scope = Scope.create () in
-  let tick = Trigger.create ~clock_freq:clock.clock ~target:tick scope { Trigger.I.reset; clock = clock.wire } in
-  let digits = multi_counter ~increment:tick.pulse ~clock:clock.wire ~reset ~digits:4 () in
+  let tick = Trigger.create ~clock_freq ~target:tick scope { Trigger.I.reset; clock} in
+  let digits = multi_counter ~increment:tick.pulse ~clock ~reset ~digits:4 () in
   let digits =
     List.mapi
       (fun i d ->
@@ -285,9 +281,9 @@ let clock_top ~clock ~reset ~refresh ~tick =
       digits
   in
   let refresh =
-    Trigger.create ~clock_freq:clock.clock ~target:refresh ~exact:false scope { Trigger.I.reset; clock = clock.wire }
+    Trigger.create ~clock_freq ~target:refresh ~exact:false scope { Trigger.I.reset; clock }
   in
-  let anode, segment, dot = display ~clock:clock.wire ~digits ~reset ~next:refresh.pulse in
+  let anode, segment, dot = display ~clock ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 
 let clock_top_test =
@@ -296,9 +292,10 @@ let clock_top_test =
   let _dot = "dot" in
   let _segment = "segment" in
   let _anode = "anode" in
-  let clock = { clock = 2000; wire = Signal.input _clock 1 } in
+  let clock_freq = 2000 in
+  let clock = Signal.input _clock 1 in
   let reset = Signal.input _reset 1 in
-  let anode, segment, dot = clock_top ~clock ~reset ~refresh:1000 ~tick:500 in
+  let anode, segment, dot = clock_top ~clock_freq ~clock ~reset ~refresh:1000 ~tick:500 in
   let circuit =
     Circuit.create_exn ~name:"clock_top"
       [ Signal.output _anode anode; Signal.output _segment segment; Signal.output _dot dot ]
@@ -343,8 +340,8 @@ module Clock = struct
   end
 
   let create (_scope : Scope.t) (input : Signal.t I.t) =
-    let clock = { clock = 100_000_000; wire = input.clock } in
-    let anode, segment, dot = clock_top ~clock ~reset:input.reset ~refresh:1000 ~tick:100 in
+    let clock_freq = 100_000_000 in
+    let anode, segment, dot = clock_top ~clock_freq ~clock:input.clock ~reset:input.reset ~refresh:1000 ~tick:100 in
     { O.anode; segment; dot }
 end
 
