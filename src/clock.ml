@@ -11,81 +11,9 @@ let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
   let count = reg spec count_next in
   let cary = increment &: (count ==:. limit) in
   let incr = mux2 increment (count +:. 1) count in
-  let next = if base = 1 lsl bits then incr else mux2 cary (zero (Signal.width count_next)) incr in
+  let next = if base = 1 lsl bits then incr else mux2 cary (zero bits) incr in
   count_next <== next;
   (count, cary)
-
-let counter_with_carry_test_1 =
-  let _clock = "clock" in
-  let _increment = "increment" in
-  let _reset = "_reset" in
-  let clock = Signal.input _clock 1 in
-  let increment = Signal.input _increment 1 in
-  let reset = Signal.input _reset 1 in
-  let count, carry = counter_with_carry ~increment ~reset ~base:5 ~bits:3 ~clock () in
-  let circuit =
-    Circuit.create_exn ~name:"counter_with_carry" [ Signal.output "carry" carry; Signal.output "count" count ]
-  in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 2;
-  Cyclesim.in_port sim _increment := Bits.vdd;
-  cycles 5;
-  Cyclesim.in_port sim _increment := Bits.gnd;
-  cycles 3;
-  Cyclesim.in_port sim _increment := Bits.vdd;
-  cycles 7;
-  Cyclesim.in_port sim _increment := Bits.gnd;
-  cycles 1;
-  Cyclesim.in_port sim _increment := Bits.vdd;
-  cycles 2;
-  Cyclesim.in_port sim _reset := Bits.vdd;
-  cycles 4;
-  Cyclesim.in_port sim _reset := Bits.gnd;
-  cycles 7;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
-
-let counter_with_carry_test_2 =
-  let _clock = "clock" in
-  let _increment = "increment" in
-  let _reset = "_reset" in
-  let clock = Signal.input _clock 1 in
-  let increment = Signal.input _increment 1 in
-  let reset = Signal.input _reset 1 in
-  let count0, carry0 = counter_with_carry ~increment ~reset ~clock () in
-  let count1, _ = counter_with_carry ~increment:carry0 ~reset ~clock () in
-  let circuit =
-    Circuit.create_exn ~name:"counter_with_carry"
-      [ Signal.output "carry0" carry0; Signal.output "count0" count0; Signal.output "count1" count1 ]
-  in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let set wire = Cyclesim.in_port sim wire := Bits.vdd in
-  let clear wire = Cyclesim.in_port sim wire := Bits.gnd in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 2;
-  set _increment;
-  cycles 5;
-  clear _increment;
-  cycles 3;
-  set _increment;
-  cycles 12;
-  clear _increment;
-  cycles 1;
-  set _increment;
-  cycles 2;
-  set _reset;
-  cycles 2;
-  clear _reset;
-  cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:16 ~display_width:100 ~wave_width:0 waves
 
 module Counter (Bits : Util.Integer) = struct
   module I = struct
@@ -95,18 +23,94 @@ module Counter (Bits : Util.Integer) = struct
   let bits = Bits.value
 
   module O = struct
-    type 'a t = { counter : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a [@bits bits] ; cary : 'a} [@@deriving sexp_of, hardcaml]
   end
 
-  let create (_scope : Scope.t) (input : Signal.t I.t) =
-    let cary, counter = counter_with_carry ~bits ~reset:input.reset ~increment:input.enable ~clock:input.clock () in
-    ignore cary;
-    { O.counter }
+  let create ?base (_scope : Scope.t) (input : Signal.t I.t) =
+    let count, cary = counter_with_carry ~bits ~reset:input.reset ~increment:input.enable ~clock:input.clock ?base () in
+    { O.count; cary }
 
-  let hierarchical scope input =
+  let hierarchical ?base scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    H.hierarchical ~scope ~name:"counter" create input
+    let name = Printf.sprintf "counter_%u" Bits.value in
+    let name = match base with
+    Some base -> Printf.sprintf "%s_%u" name base
+    | None -> name in
+    H.hierarchical ~scope ~name (create ?base) input
 end
+
+let counter_with_carry_test_1 =
+  let scope = Scope.create ~flatten_design:true () in
+  let module CounterBits = struct
+    let value = 3
+  end in
+  let module Counter = Counter (CounterBits) in
+  let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
+  let waves, sim = Counter.create ~base:5 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let cycles n =
+    for _ = 0 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  cycles 2;
+  set inputs.enable;
+  cycles 5;
+  clear inputs.enable;
+  cycles 3;
+  set inputs.enable;
+  cycles 7;
+  clear inputs.enable;
+  cycles 1;
+  set inputs.enable;
+  cycles 2;
+  clear inputs.enable;
+  cycles 4;
+  set inputs.enable;
+  cycles 7;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
+
+let counter_with_carry_test_2 =
+  let scope = Scope.create ~flatten_design:true () in
+  let module CounterBits = struct
+    let value = 4
+  end in
+  let module Counter = Counter (CounterBits) in
+  let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
+  let circuit input =
+    let count0 = Counter.create scope input in
+    let count1 = Counter.create scope {input with enable=count0.cary} in
+    let open Signal in
+    count0.count -- "count0" |> ignore;
+    count0.cary -- "cary0" |> ignore;
+    count1 in
+  let waves, sim = circuit |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let cycles n =
+    for _ = 0 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  cycles 2;
+  set inputs.enable;
+  cycles 5;
+  clear inputs.enable;
+  cycles 3;
+  set inputs.enable;
+  cycles 12;
+  clear inputs.enable;
+  cycles 1;
+  set inputs.enable;
+  cycles 2;
+  set inputs.reset;
+  cycles 2;
+  clear inputs.reset;
+  cycles 4;
+  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
 
 type clock = { clock : int; wire : Signal.t }
 
