@@ -5,6 +5,9 @@ default:
 rtl:
 	opam exec dune exec ./main.exe
 
+simulator:
+	opam exec dune exec ./main.exe $@
+
 format:
 	opam exec dune fmt
 
