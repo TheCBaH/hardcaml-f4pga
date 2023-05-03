@@ -113,10 +113,14 @@ let level_control_test =
     [ 255; 25; 7 ]
 
 let pwm_control ~scope ~clock ~reset ~enable ~base ~max ~levels ~level =
+  let module Base = struct
+    let value = base
+  end in
+  let module Pwm = Util.Pwm (Base) in
   let scale = base / max in
   let value = level_control ~max ~levels ~level ~scale in
-  let control = Util.pwm ~scope ~clock ~reset ~enable ~base ~value () in
-  control
+  let control = Pwm.WithCounter.create scope {clock;enable;reset;value} in
+  control.control
 
 module PwmControl (Levels : Util.Integer) = struct
   let bits = Levels.value - 1 |> Bits.num_bits_to_represent

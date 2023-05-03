@@ -313,65 +313,84 @@ let trigger_with_enable_test =
   cycles 15;
   Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:88 ~wave_width:0 waves
 
-
-let pwm ~scope ~clock ~reset ~enable ~base ~value () =
+let pwm ~base ~count ~value =
   assert (base > 0);
   let bits = Base.Int.ceil_log2 base in
   let open Signal in
-  let ( -- ) = Scope.naming scope in
-  let count = wire bits -- "count" in
-  let count_succ =
-    let incr = count +:. 1 in
-    if base = 1 lsl bits then incr else mux2 (count <>:. base - 1) incr (zero bits)
-  in
-  let count_succ = mux2 enable count_succ count in
-  let spec = Reg_spec.create ~clock ~clear:reset () in
-  count <== reg spec count_succ;
   let value = uresize value bits in
-  let control = count <: value &: ~:reset in
+  let control = count <: value in
   control
 
 module Bit8 : Integer = struct
   let value = 8
 end
 
+module Int256 : Integer = struct
+  let value = 256
+end
+
 module Pwm (W : Integer) = struct
-  let bits = W.value
+  let base = W.value
+  let bits = Base.Int.ceil_log2 base
 
   module I = struct
     type 'a t = {
-      clock : 'a; [@bits 1]
-      enable : 'a; [@bits 1]
-      reset : 'a; [@bits 1] [@rtlsuffix "_"]
+      count: 'a; [@bits bits]
       value : 'a; [@bits bits]
     }
     [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { control : 'a [@bits 1] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { control : 'a } [@@deriving sexp_of, hardcaml]
   end
 
-  let create ~base scope (input : Signal.t I.t) =
-    { O.control = pwm ~scope ~reset:input.reset ~clock:input.clock ~enable:input.enable ~value:input.value ~base () }
+  let create _scope (input : Signal.t I.t) =
+    { O.control = pwm ~base ~count:input.count ~value:input.value }
 
-  let hierarchical ~base scope input =
+  let hierarchical scope input =
     let module H = Hierarchy.In_scope (I) (O) in
     let name = Printf.sprintf "pwm_%u" base in
-    H.hierarchical ~scope ~name (create ~base) input
+    H.hierarchical ~scope ~name create input
+
+  module WithCounter = struct
+    module Bits = struct
+      let value = base
+    end
+    module Counter = Counter(Bits)
+
+    module I = struct
+      type 'a t = {
+        clock: 'a;
+        enable: 'a;
+        reset: 'a;
+        value : 'a; [@bits bits]
+      }
+    [@@deriving sexp_of, hardcaml]
+    end
+
+    let create scope (input : Signal.t I.t) =
+      let counter = Counter.hierarchical ~base scope {clock=input.clock;enable=input.enable;reset=input.reset }in
+      create scope {count=counter.count;value=input.value}
+
+    let hierarchical scope (input : Signal.t I.t) =
+      let name = Printf.sprintf "pwm_counter_%u" base in
+      let module H = Hierarchy.In_scope (I) (O) in
+      H.hierarchical ~scope ~name create input
+  end
 end
 
 let pwm_test_1 =
-  let module Pwm = Pwm (Bit8) in
+  let module Pwm = Pwm (Int256) in
   let scope = Scope.create ~flatten_design:true () in
-  let module Simulator = Cyclesim.With_interface (Pwm.I) (Pwm.O) in
+  let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
   let config =
     {
       Cyclesim.Config.default with
       is_internal_port = Some (fun s -> Signal.names s |> List.exists (String.starts_with ~prefix:"count"));
     }
   in
-  let waves, sim = Pwm.create ~base:4 scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create in
+  let waves, sim = Pwm.WithCounter.create scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
@@ -401,9 +420,12 @@ let pwm_test_1 =
 
 let pwm_test_2 =
   let scope = Scope.create ~flatten_design:true () in
-  let module Pwm = Pwm (Bit8) in
-  let module Simulator = Cyclesim.With_interface (Pwm.I) (Pwm.O) in
-  let waves, sim = Pwm.create ~base:4 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let module Int4 : Integer = struct
+    let value = 4
+  end in
+  let module Pwm = Pwm (Int4) in
+  let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
+  let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
