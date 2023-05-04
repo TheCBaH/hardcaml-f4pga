@@ -127,6 +127,8 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
     let scale = PwmBase.value / max in
     let ( -- ) = Scope.naming scope in
     let value = level_control ~max ~levels:Levels.value ~level:input.level ~scale -- "value" in
+    assert (Pwm.bits >= Signal.width value);
+    let value = Signal.uresize value Pwm.bits in
     let pwm = Pwm.hierarchical scope { Pwm.I.count = input.count; value } in
     { O.control = pwm.control }
 
