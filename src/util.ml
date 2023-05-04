@@ -318,8 +318,7 @@ module Pwm (W : Integer) = struct
   let bits = Base.Int.ceil_log2 base
 
   module I = struct
-    type 'a t = { count : 'a; [@bits bits] value : 'a [@bits bits] }
-    [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a; [@bits bits] value : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -382,9 +381,9 @@ let pwm_test_1 =
   set_value 0;
   cycles 1;
   set inputs.enable;
-  cycles 5;
+  cycles 1;
   set inputs.reset;
-  cycles 2;
+  cycles 1;
   clear inputs.reset;
   set_value 2;
   cycles 2;
@@ -395,8 +394,8 @@ let pwm_test_1 =
   set_value 0;
   cycles 1;
   set_value 3;
-  cycles 2;
-  Hardcaml_waveterm.Waveform.print ~display_height:16 ~display_width:84 ~wave_width:0 waves
+  cycles 8;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves
 
 let pwm_test_2 =
   let scope = Scope.create ~flatten_design:true () in
@@ -417,7 +416,7 @@ let pwm_test_2 =
   let set_value v = inputs.value := Bits.of_int ~width:(Bits.width !(inputs.value)) v in
   set inputs.enable;
   set_value 0;
-  cycles 4;
+  cycles 1;
   set inputs.reset;
   cycles 1;
   set_value 2;
