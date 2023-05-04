@@ -318,7 +318,7 @@ module Pwm (W : Integer) = struct
   let bits = Base.Int.ceil_log2 base
 
   module I = struct
-    type 'a t = { count : 'a; [@bits bits] reset : 'a; [@rtlsuffix "_"] value : 'a [@bits bits] }
+    type 'a t = { count : 'a; [@bits bits] value : 'a [@bits bits] }
     [@@deriving sexp_of, hardcaml]
   end
 
@@ -330,7 +330,7 @@ module Pwm (W : Integer) = struct
     assert (base > 0);
     let open Signal in
     let value = uresize i.value bits in
-    { O.control = i.count <: value &: ~:(i.reset) }
+    { O.control = i.count <: value }
 
   let hierarchical scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -353,7 +353,7 @@ module Pwm (W : Integer) = struct
       let counter =
         Counter.hierarchical ~base scope { clock = input.clock; enable = input.enable; reset = input.reset }
       in
-      create scope { count = counter.count; value = input.value; reset = input.reset }
+      create scope { count = counter.count; value = input.value }
 
     let hierarchical scope (input : Signal.t I.t) =
       let name = Printf.sprintf "pwm_counter_%u" base in
@@ -379,13 +379,14 @@ let pwm_test_1 =
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
   let set_value v = inputs.value := Bits.of_int ~width:(Bits.width !(inputs.value)) v in
-  set_value 2;
+  set_value 0;
   cycles 1;
   set inputs.enable;
   cycles 5;
   set inputs.reset;
   cycles 2;
   clear inputs.reset;
+  set_value 2;
   cycles 2;
   set_value 1;
   cycles 5;
