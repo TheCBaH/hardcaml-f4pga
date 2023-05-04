@@ -282,7 +282,10 @@ module LedTop = struct
   end
 
   module Led = Led (Levels) (PwmBase)
-  module O = Led.O
+
+  module O = struct
+    type 'a t = { blue : 'a; green : 'a; red : 'a } [@@deriving sexp_of, hardcaml]
+  end
 
   let create ~clock_freq ~refresh ~tick scope input =
     let reset = input.I.reset in
@@ -303,9 +306,15 @@ module LedTop = struct
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
     in
-    let counter = { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
-    Led.WithCounter.create ~color:orchid scope
-      { Led.WithCounter.I.counter; level = { Led.Level.blue = level.count; green = level.count; red = level.count } }
+    let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
+    let o_led =
+      Led.create ~color:orchid scope
+        {
+          Led.I.count = counter.count;
+          level = { Led.Level.blue = level.count; green = level.count; red = level.count };
+        }
+    in
+    { O.blue = o_led.Led.O.c_blue; green = o_led.c_green; red = o_led.c_red }
 
   let hierarchical ~clock_freq ~refresh ~tick scope input =
     let module H = Hierarchy.In_scope (I) (O) in

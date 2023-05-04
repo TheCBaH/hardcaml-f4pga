@@ -70,10 +70,19 @@ let pulse_test =
   Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves;
   Cyclesim.circuit sim
 
-let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
-  let base_bits = Base.Int.ceil_log2 base in
-  let bits = Option.value ~default:base_bits bits in
-  assert (bits >= base_bits);
+let counter_with_carry ?base ?bits ~reset ~increment ~clock () =
+  let base, bits =
+    match (base, bits) with
+    | Some base, _ ->
+        let base_bits = Base.Int.ceil_log2 base in
+        let bits = Option.value ~default:base_bits bits in
+        assert (bits >= base_bits);
+        (base, bits)
+    | None, Some bits ->
+        let base = 1 lsl bits in
+        (base, bits)
+    | None, None -> assert false
+  in
   let spec = Reg_spec.create ~clock ~clear:reset () in
   let open Signal in
   let count_next = wire bits in
@@ -340,7 +349,9 @@ module Pwm (W : Integer) = struct
     let value = bits
   end
 
-  module Counter = Counter (CounterBits)
+  module Counter = struct
+    include Counter (CounterBits)
+  end
 
   module WithCounter = struct
     module I = struct

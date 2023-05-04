@@ -144,7 +144,7 @@ let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
   let open Signal in
   let scope = Scope.create () in
   let tick = Util.Trigger.create ~clock_freq ~target:tick scope { reset; clock } in
-  let digits = multi_counter ~increment:tick.pulse ~clock ~reset ~digits:4 () in
+  let digits = multi_counter ~base:10 ~increment:tick.pulse ~clock ~reset ~digits:4 () in
   let digits =
     List.mapi
       (fun i d ->
