@@ -44,7 +44,7 @@ activate_xdc=sed -i -E $(foreach v, $(1),-e 's/#(.+)($v)(.+)/\1\2\3/')
 
 ${BUILD_DIR}/arty_35.xdc: ${BUILD_DIR}/Arty-A7-35-Master.xdc
 	cp $^ $@.tmp
-	$(call activate_xdc, CLK100MHZ led0_? btn ) $@.tmp
+	$(call activate_xdc, CLK100MHZ led0_? led1_? led2_? btn ) $@.tmp
 	mv $@.tmp $@
 
 ${BUILD_DIR}/basys3.xdc: ${BUILD_DIR}/Basys-3-Master.xdc

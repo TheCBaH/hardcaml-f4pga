@@ -192,9 +192,9 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
 
   module Level = struct
     type 'a t = {
-      blue : 'a; [@bits PwmControl.bits]
-      green : 'a; [@bits PwmControl.bits]
-      red : 'a; [@bits PwmControl.bits]
+      l_blue : 'a; [@bits PwmControl.bits]
+      l_green : 'a; [@bits PwmControl.bits]
+      l_red : 'a; [@bits PwmControl.bits]
     }
     [@@deriving sexp_of, hardcaml]
   end
@@ -204,7 +204,7 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
   end
 
   module O = struct
-    type 'a t = { c_blue : 'a; c_green : 'a; c_red : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { blue : 'a; green : 'a; red : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~color scope (input : Signal.t I.t) =
@@ -213,9 +213,9 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
       pwm_out.PwmControl.O.control
     in
     {
-      O.c_blue = control color.Color.blue input.level.blue;
-      c_green = control color.Color.green input.level.green;
-      c_red = control color.Color.red input.level.red;
+      O.blue = control color.Color.blue input.level.l_blue;
+      green = control color.Color.green input.level.l_green;
+      red = control color.Color.red input.level.l_red;
     }
 
   let hierarchical ~color scope input =
@@ -259,7 +259,7 @@ let led_control_test =
   let set_level v =
     List.iter
       (fun i -> i := Bits.of_int ~width:(Bits.width !i) v)
-      [ inputs.level.blue; inputs.level.green; inputs.level.red ];
+      [ inputs.level.l_blue; inputs.level.l_green; inputs.level.l_red ];
     2 * base |> cycles
   in
   set inputs.counter.enable;
@@ -312,7 +312,7 @@ module LedTop = struct
     let turquoise = { Color.red = 64; green = 224; blue = 208 } in
     let chocolate = { Color.red = 210; green = 105; blue = 30 } in
     let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
-    let level = { Led.Level.blue = level.count; green = level.count; red = level.count } in
+    let level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count } in
     let led_0 =
       Led.create ~color:orchid scope { Led.I.count = counter.count; level } in
     let led_1 =
@@ -320,9 +320,9 @@ module LedTop = struct
     let led_2 =
       Led.create ~color:chocolate scope { Led.I.count = counter.count; level } in
     {
-       O.blue_0 = led_0.Led.O.c_blue; green_0 = led_0.c_green; red_0 = led_0.c_red;
-       O.blue_1 = led_1.Led.O.c_blue; green_1 = led_1.c_green; red_1 = led_1.c_red;
-       O.blue_2 = led_2.Led.O.c_blue; green_2 = led_2.c_green; red_2 = led_2.c_red;
+       O.blue_0 = led_0.Led.O.blue; green_0 = led_0.green; red_0 = led_0.red;
+       O.blue_1 = led_1.Led.O.blue; green_1 = led_1.green; red_1 = led_1.red;
+       O.blue_2 = led_2.Led.O.blue; green_2 = led_2.green; red_2 = led_2.red;
      }
 
   let hierarchical ~clock_freq ~refresh ~tick scope input =
