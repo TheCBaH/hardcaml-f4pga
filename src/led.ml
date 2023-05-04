@@ -119,7 +119,7 @@ let pwm_control ~scope ~clock ~reset ~enable ~base ~max ~levels ~level =
   let module Pwm = Util.Pwm (Base) in
   let scale = base / max in
   let value = level_control ~max ~levels ~level ~scale in
-  let control = Pwm.WithCounter.create scope {clock;enable;reset;value} in
+  let control = Pwm.WithCounter.create scope { clock; enable; reset; value } in
   control.control
 
 module PwmControl (Levels : Util.Integer) = struct
@@ -259,8 +259,7 @@ module LedTop = struct
     let base = 256 in
     let reset = input.I.reset in
     let _10kHz =
-      Util.Trigger.hierarchical ~clock_freq ~target:refresh scope
-        { reset = input.reset; clock = input.clock }
+      Util.Trigger.hierarchical ~clock_freq ~target:refresh scope { reset = input.reset; clock = input.clock }
     in
     let _1Hz =
       let divider = refresh / tick in

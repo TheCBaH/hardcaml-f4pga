@@ -1,6 +1,5 @@
 open Hardcaml
 
-
 let segment_encode ~digit =
   let display =
     [
@@ -144,7 +143,7 @@ let multi_counter_test =
 let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
   let open Signal in
   let scope = Scope.create () in
-  let tick = Util.Trigger.create ~clock_freq ~target:tick scope { reset; clock} in
+  let tick = Util.Trigger.create ~clock_freq ~target:tick scope { reset; clock } in
   let digits = multi_counter ~increment:tick.pulse ~clock ~reset ~digits:4 () in
   let digits =
     List.mapi
@@ -153,9 +152,7 @@ let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
         { data = d; enable = vdd; dot })
       digits
   in
-  let refresh =
-    Util.Trigger.create ~clock_freq ~target:refresh ~exact:false scope { reset; clock }
-  in
+  let refresh = Util.Trigger.create ~clock_freq ~target:refresh ~exact:false scope { reset; clock } in
   let anode, segment, dot = display ~clock ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 

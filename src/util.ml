@@ -16,11 +16,11 @@ let pulse ~scope ~reset ~clock ~length () =
 
 module Pulse = struct
   module I = struct
-    type 'a t = { clock : 'a; [@bits 1] reset : 'a [@bits 1] [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { pulse : 'a [@bits 1] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { pulse : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~length (scope : Scope.t) (input : Signal.t I.t) =
@@ -190,8 +190,8 @@ let trigger_gen ?divider ?target ?(exact = true) ?enable ?clock_freq ~reset ~clo
   let always_enable = Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
   let divider =
     match (always_enable, target, divider, clock_freq) with
-    | _, None, Some divider,_ -> divider
-    | true, Some target, None,Some clock -> clock / target
+    | _, None, Some divider, _ -> divider
+    | true, Some target, None, Some clock -> clock / target
     | _ -> assert false
   in
   assert (divider > 0);
@@ -202,7 +202,7 @@ let trigger_gen ?divider ?target ?(exact = true) ?enable ?clock_freq ~reset ~clo
   else
     let open Signal in
     let ( -- ) = Scope.naming scope in
-    let spec = Reg_spec.create ~clock:clock ~clear:reset () in
+    let spec = Reg_spec.create ~clock ~clear:reset () in
     let count = wire bits -- "count" in
     let cary = enable &: (count ==:. limit) in
     let incr = mux2 enable (count +:. 1) count in
@@ -313,31 +313,12 @@ let trigger_with_enable_test =
   cycles 15;
   Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:88 ~wave_width:0 waves
 
-let pwm ~base ~count ~value =
-  assert (base > 0);
-  let bits = Base.Int.ceil_log2 base in
-  let open Signal in
-  let value = uresize value bits in
-  let control = count <: value in
-  control
-
-module Bit8 : Integer = struct
-  let value = 8
-end
-
-module Int256 : Integer = struct
-  let value = 256
-end
-
 module Pwm (W : Integer) = struct
   let base = W.value
   let bits = Base.Int.ceil_log2 base
 
   module I = struct
-    type 'a t = {
-      count: 'a; [@bits bits]
-      value : 'a; [@bits bits]
-    }
+    type 'a t = { count : 'a; [@bits bits] reset : 'a; [@rtlsuffix "_"] value : 'a [@bits bits] }
     [@@deriving sexp_of, hardcaml]
   end
 
@@ -345,8 +326,11 @@ module Pwm (W : Integer) = struct
     type 'a t = { control : 'a } [@@deriving sexp_of, hardcaml]
   end
 
-  let create _scope (input : Signal.t I.t) =
-    { O.control = pwm ~base ~count:input.count ~value:input.value }
+  let create _scope (i : Signal.t I.t) =
+    assert (base > 0);
+    let open Signal in
+    let value = uresize i.value bits in
+    { O.control = i.count <: value &: ~:(i.reset) }
 
   let hierarchical scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -355,23 +339,21 @@ module Pwm (W : Integer) = struct
 
   module WithCounter = struct
     module Bits = struct
-      let value = base
+      let value = bits
     end
-    module Counter = Counter(Bits)
+
+    module Counter = Counter (Bits)
 
     module I = struct
-      type 'a t = {
-        clock: 'a;
-        enable: 'a;
-        reset: 'a;
-        value : 'a; [@bits bits]
-      }
-    [@@deriving sexp_of, hardcaml]
+      type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] value : 'a [@bits bits] }
+      [@@deriving sexp_of, hardcaml]
     end
 
     let create scope (input : Signal.t I.t) =
-      let counter = Counter.hierarchical ~base scope {clock=input.clock;enable=input.enable;reset=input.reset }in
-      create scope {count=counter.count;value=input.value}
+      let counter =
+        Counter.hierarchical ~base scope { clock = input.clock; enable = input.enable; reset = input.reset }
+      in
+      create scope { count = counter.count; value = input.value; reset = input.reset }
 
     let hierarchical scope (input : Signal.t I.t) =
       let name = Printf.sprintf "pwm_counter_%u" base in
@@ -381,16 +363,13 @@ module Pwm (W : Integer) = struct
 end
 
 let pwm_test_1 =
-  let module Pwm = Pwm (Int256) in
+  let module Int4 : Integer = struct
+    let value = 4
+  end in
+  let module Pwm = Pwm (Int4) in
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
-  let config =
-    {
-      Cyclesim.Config.default with
-      is_internal_port = Some (fun s -> Signal.names s |> List.exists (String.starts_with ~prefix:"count"));
-    }
-  in
-  let waves, sim = Pwm.WithCounter.create scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create in
+  let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
@@ -436,10 +415,11 @@ let pwm_test_2 =
   let clear wire = wire := Bits.gnd in
   let set_value v = inputs.value := Bits.of_int ~width:(Bits.width !(inputs.value)) v in
   set inputs.enable;
-  set_value 2;
+  set_value 0;
   cycles 4;
   set inputs.reset;
   cycles 1;
+  set_value 2;
   clear inputs.reset;
   cycles 1;
   set_value 1;
