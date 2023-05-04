@@ -124,7 +124,7 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
   end
 
   let create ~max scope (input : Signal.t I.t) =
-    let scale = PwmBase.value / max in
+    let scale = PwmBase.value + max / if max == 0 then 1 else max in
     let ( -- ) = Scope.naming scope in
     let value = level_control ~max ~levels:Levels.value ~level:input.level ~scale -- "value" in
     assert (Pwm.bits >= Signal.width value);
@@ -316,13 +316,18 @@ module LedTop = struct
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
     in
+    (*
     let orchid = { Color.red = 218; green = 112; blue = 214 } in
-    let turquoise = { Color.red = 64; green = 224; blue = 208 } in
+    let tomato = { Color.red = 255; green = 99; blue = 71} in
     let chocolate = { Color.red = 210; green = 105; blue = 30 } in
+    *)
+    let orchid = { Color.red = 0; green = 255; blue = 0} in
+    let tomato = { Color.red = 255; green = 0; blue = 0} in
+    let chocolate = { Color.red = 0; green = 0; blue = 255} in
     let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
     let level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count } in
     let led_0 = Led.create ~color:orchid scope { Led.I.count = counter.count; level } in
-    let led_1 = Led.create ~color:turquoise scope { Led.I.count = counter.count; level } in
+    let led_1 = Led.create ~color:tomato scope { Led.I.count = counter.count; level } in
     let led_2 = Led.create ~color:chocolate scope { Led.I.count = counter.count; level } in
     {
       O.blue_0 = led_0.Led.O.blue;
