@@ -336,13 +336,13 @@ module Pwm (W : Integer) = struct
     let name = Printf.sprintf "pwm_%u" base in
     H.hierarchical ~scope ~name create input
 
+  module CounterBits = struct
+    let value = bits
+  end
+
+  module Counter = Counter (CounterBits)
+
   module WithCounter = struct
-    module Bits = struct
-      let value = bits
-    end
-
-    module Counter = Counter (Bits)
-
     module I = struct
       type 'a t = { counter : 'a Counter.I.t; value : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
     end

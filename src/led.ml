@@ -137,9 +137,9 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
     let name = Printf.sprintf "pwm_control_%u_%u_%u" Levels.value PwmBase.value max in
     H.hierarchical ~scope ~name (create ~max) input
 
-  module WithCounter = struct
-    module Counter = Pwm.WithCounter.Counter
+  module Counter = Pwm.Counter
 
+  module WithCounter = struct
     module I = struct
       type 'a t = { counter : 'a Counter.I.t; level : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
     end
@@ -223,15 +223,15 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
     let name = Printf.sprintf "led_%u_%u_%u_%u_%u" Levels.value PwmBase.value color.Color.blue color.green color.red in
     H.hierarchical ~scope ~name (create ~color) input
 
-  module WithCounter = struct
-    module Counter = PwmControl.WithCounter.Counter
+  module Counter = PwmControl.Counter
 
+  module WithCounter = struct
     module I = struct
       type 'a t = { counter : 'a Counter.I.t; level : 'a Level.t } [@@deriving sexp_of, hardcaml]
     end
 
     let create ~color scope (input : Signal.t I.t) =
-      let counter = PwmControl.WithCounter.Counter.hierarchical ~base:PwmBase.value scope input.counter in
+      let counter = Counter.hierarchical ~base:PwmBase.value scope input.counter in
       create ~color scope { count = counter.count; level = input.level }
   end
 end
@@ -303,7 +303,7 @@ module LedTop = struct
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
     in
-    let counter = { Led.WithCounter.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
+    let counter = { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
     Led.WithCounter.create ~color:orchid scope
       { Led.WithCounter.I.counter; level = { Led.Level.blue = level.count; green = level.count; red = level.count } }
 
