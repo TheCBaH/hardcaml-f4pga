@@ -1,7 +1,5 @@
 open Hardcaml
 
-type led_in = { value : int; wire : Signal.t }
-
 let level_control_float ~max ~levels ~level =
   assert (levels > 1);
   let step_float = float_of_int max /. float_of_int (levels - 1) in
@@ -112,50 +110,62 @@ let level_control_test =
         [ 4; 16 ])
     [ 255; 25; 7 ]
 
-let pwm_control ~scope ~clock ~reset ~enable ~base ~max ~levels ~level =
-  let module Base = struct
-    let value = base
-  end in
-  let module Pwm = Util.Pwm (Base) in
-  let scale = base / max in
-  let value = level_control ~max ~levels ~level ~scale in
-  let control = Pwm.WithCounter.create scope { clock; enable; reset; value } in
-  control.control
-
-module PwmControl (Levels : Util.Integer) = struct
+module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
   let bits = Levels.value - 1 |> Bits.num_bits_to_represent
 
+  module Pwm = Util.Pwm (PwmBase)
+
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] level : 'a [@bits bits] }
-    [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a; [@bits Pwm.bits] level : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
     type 'a t = { control : 'a } [@@deriving sexp_of, hardcaml]
   end
 
-  let create ~base ~max scope (input : Signal.t I.t) =
-    {
-      O.control =
-        pwm_control ~scope ~clock:input.clock ~reset:input.reset ~enable:input.enable ~base ~max ~levels:Levels.value
-          ~level:input.level;
-    }
+  let create ~max scope (input : Signal.t I.t) =
+    let scale = PwmBase.value / max in
+    let ( -- ) = Scope.naming scope in
+    let value = level_control ~max ~levels:Levels.value ~level:input.level ~scale -- "value" in
+    let pwm = Pwm.hierarchical scope { Pwm.I.count = input.count; value } in
+    { O.control = pwm.control }
 
-  let hierarchical ~base ~max scope input =
+  let hierarchical ~max scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    let name = Printf.sprintf "pwm_control_%u_%u_%u" Levels.value base max in
-    H.hierarchical ~scope ~name (create ~base ~max) input
+    let name = Printf.sprintf "pwm_control_%u_%u_%u" Levels.value PwmBase.value max in
+    H.hierarchical ~scope ~name (create ~max) input
+
+  module WithCounter = struct
+    module I = struct
+      type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] level : 'a [@bits bits] }
+      [@@deriving sexp_of, hardcaml]
+    end
+
+    let create ~max scope (input : Signal.t I.t) =
+      let counter =
+        Pwm.WithCounter.Counter.hierarchical ~base:PwmBase.value scope
+          { clock = input.clock; enable = input.enable; reset = input.reset }
+      in
+      create ~max scope { count = counter.count; level = input.level }
+  end
 end
 
 let pwm_control_test =
   let module Levels = struct
     let value = 4
   end in
+  let module Base = struct
+    let value = 8
+  end in
   let scope = Scope.create ~flatten_design:true () in
-  let module PwmControl = PwmControl (Levels) in
-  let module Simulator = Cyclesim.With_interface (PwmControl.I) (PwmControl.O) in
+  let module PwmControl = PwmControl (Levels) (Base) in
+  let module Simulator = Cyclesim.With_interface (PwmControl.WithCounter.I) (PwmControl.O) in
   let base = 8 in
-  let waves, sim = PwmControl.create ~max:6 ~base scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let waves, sim =
+    PwmControl.WithCounter.create ~max:6 scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
+  in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
@@ -171,59 +181,74 @@ let pwm_control_test =
   set_level 1;
   set_level 2;
   set_level 3;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
 
 module Color = struct
   type t = { blue : int; green : int; red : int }
 end
 
-module Led (Levels : Util.Integer) = struct
-  let bits = Levels.value - 1 |> Bits.num_bits_to_represent
+module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
+  module PwmControl = PwmControl (Levels) (PwmBase)
 
   module Level = struct
-    type 'a t = { l_blue : 'a; [@bits bits] l_green : 'a; [@bits bits] l_red : 'a [@bits bits] }
+    type 'a t = {
+      blue : 'a; [@bits PwmControl.bits]
+      green : 'a; [@bits PwmControl.bits]
+      red : 'a; [@bits PwmControl.bits]
+    }
     [@@deriving sexp_of, hardcaml]
   end
 
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] level : 'a Level.t }
-    [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a; [@bits PwmControl.Pwm.bits] level : 'a Level.t } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { blue : 'a; green : 'a; red : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { c_blue : 'a; c_green : 'a; c_red : 'a } [@@deriving sexp_of, hardcaml]
   end
 
-  module PwmControl = PwmControl (Levels)
-
-  let create ~base ~color scope (input : Signal.t I.t) =
+  let create ~color scope (input : Signal.t I.t) =
     let control color level =
-      let pwm_in = { PwmControl.I.reset = input.reset; level; clock = input.clock; enable = input.enable } in
-      let pwm_out = PwmControl.hierarchical ~base ~max:color scope pwm_in in
+      let pwm_out = PwmControl.hierarchical ~max:color scope { count = input.count; level } in
       pwm_out.PwmControl.O.control
     in
     {
-      O.blue = control color.Color.blue input.level.l_blue;
-      green = control color.Color.green input.level.l_green;
-      red = control color.Color.red input.level.l_red;
+      O.c_blue = control color.Color.blue input.level.blue;
+      c_green = control color.Color.green input.level.green;
+      c_red = control color.Color.red input.level.red;
     }
 
-  let hierarchical ~base ~color scope input =
+  let hierarchical ~color scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    let name = Printf.sprintf "led_%u_%u_%u_%u" base color.Color.blue color.green color.red in
-    H.hierarchical ~scope ~name (create ~base ~color) input
+    let name = Printf.sprintf "led_%u_%u_%u_%u_%u" Levels.value PwmBase.value color.Color.blue color.green color.red in
+    H.hierarchical ~scope ~name (create ~color) input
+
+  module WithCounter = struct
+    module Counter = PwmControl.Pwm.WithCounter.Counter
+
+    module I = struct
+      type 'a t = { counter : 'a Counter.I.t; level : 'a Level.t } [@@deriving sexp_of, hardcaml]
+    end
+
+    let create ~color scope (input : Signal.t I.t) =
+      let counter = PwmControl.Pwm.WithCounter.Counter.hierarchical ~base:PwmBase.value scope input.counter in
+      create ~color scope { count = counter.count; level = input.level }
+  end
 end
 
 let led_control_test =
   let module Levels = struct
     let value = 4
   end in
+  let module Base = struct
+    let value = 8
+  end in
   let scope = Scope.create ~flatten_design:true () in
-  let module Led = Led (Levels) in
-  let module Simulator = Cyclesim.With_interface (Led.I) (Led.O) in
+  let module Led = Led (Levels) (Base) in
+  let module Simulator = Cyclesim.With_interface (Led.WithCounter.I) (Led.O) in
   let base = 8 in
   let color = { Color.red = 2; Color.blue = 4; Color.green = 7 } in
-  let waves, sim = Led.create ~color ~base scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let waves, sim = Led.WithCounter.create ~color scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
@@ -234,13 +259,13 @@ let led_control_test =
   let set_level v =
     List.iter
       (fun i -> i := Bits.of_int ~width:(Bits.width !i) v)
-      [ inputs.level.l_blue; inputs.level.l_green; inputs.level.l_red ];
+      [ inputs.level.blue; inputs.level.green; inputs.level.red ];
     2 * base |> cycles
   in
-  set inputs.enable;
+  set inputs.counter.enable;
   set_level 1;
-  set_level 4;
-  set_level 7;
+  set_level 2;
+  set_level 3;
   Hardcaml_waveterm.Waveform.print ~display_height:23 ~display_width:100 ~wave_width:0 waves
 
 module LedTop = struct
@@ -252,11 +277,14 @@ module LedTop = struct
     let value = 16
   end
 
-  module Led = Led (Levels)
+  module PwmBase = struct
+    let value = 256
+  end
+
+  module Led = Led (Levels) (PwmBase)
   module O = Led.O
 
   let create ~clock_freq ~refresh ~tick scope input =
-    let base = 256 in
     let reset = input.I.reset in
     let _10kHz =
       Util.Trigger.hierarchical ~clock_freq ~target:refresh scope { reset = input.reset; clock = input.clock }
@@ -275,13 +303,9 @@ module LedTop = struct
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
     in
-    Led.create ~base ~color:orchid scope
-      {
-        Led.I.clock = input.I.clock;
-        enable = _10kHz.pulse;
-        reset;
-        level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count };
-      }
+    let counter = { Led.WithCounter.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
+    Led.WithCounter.create ~color:orchid scope
+      { Led.WithCounter.I.counter; level = { Led.Level.blue = level.count; green = level.count; red = level.count } }
 
   let hierarchical ~clock_freq ~refresh ~tick scope input =
     let module H = Hierarchy.In_scope (I) (O) in

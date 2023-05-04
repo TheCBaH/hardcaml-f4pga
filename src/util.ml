@@ -67,7 +67,7 @@ let pulse_test =
   cycles 1;
   clear inputs.reset;
   cycles 5;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:0 waves;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves;
   Cyclesim.circuit sim
 
 let counter_with_carry ?(base = 10) ?bits ~reset ~increment ~clock () =
@@ -427,5 +427,5 @@ let pwm_test_2 =
   set_value 0;
   cycles 5;
   set_value 3;
-  cycles 7;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:84 ~wave_width:0 waves
+  cycles 10;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves
