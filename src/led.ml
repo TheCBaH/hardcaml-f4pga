@@ -284,10 +284,18 @@ module LedTop = struct
   module Led = Led (Levels) (PwmBase)
 
   module O = struct
-    type 'a t = { blue_0 : 'a; green_0 : 'a; red_0 : 'a;
-                  blue_1 : 'a; green_1 : 'a; red_1 : 'a;
-                  blue_2 : 'a; green_2 : 'a; red_2 : 'a;
-     } [@@deriving sexp_of, hardcaml]
+    type 'a t = {
+      blue_0 : 'a;
+      green_0 : 'a;
+      red_0 : 'a;
+      blue_1 : 'a;
+      green_1 : 'a;
+      red_1 : 'a;
+      blue_2 : 'a;
+      green_2 : 'a;
+      red_2 : 'a;
+    }
+    [@@deriving sexp_of, hardcaml]
   end
 
   let create ~clock_freq ~refresh ~tick scope input =
@@ -313,17 +321,20 @@ module LedTop = struct
     let chocolate = { Color.red = 210; green = 105; blue = 30 } in
     let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
     let level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count } in
-    let led_0 =
-      Led.create ~color:orchid scope { Led.I.count = counter.count; level } in
-    let led_1 =
-      Led.create ~color:turquoise scope { Led.I.count = counter.count; level } in
-    let led_2 =
-      Led.create ~color:chocolate scope { Led.I.count = counter.count; level } in
+    let led_0 = Led.create ~color:orchid scope { Led.I.count = counter.count; level } in
+    let led_1 = Led.create ~color:turquoise scope { Led.I.count = counter.count; level } in
+    let led_2 = Led.create ~color:chocolate scope { Led.I.count = counter.count; level } in
     {
-       O.blue_0 = led_0.Led.O.blue; green_0 = led_0.green; red_0 = led_0.red;
-       O.blue_1 = led_1.Led.O.blue; green_1 = led_1.green; red_1 = led_1.red;
-       O.blue_2 = led_2.Led.O.blue; green_2 = led_2.green; red_2 = led_2.red;
-     }
+      O.blue_0 = led_0.Led.O.blue;
+      green_0 = led_0.green;
+      red_0 = led_0.red;
+      O.blue_1 = led_1.Led.O.blue;
+      green_1 = led_1.green;
+      red_1 = led_1.red;
+      O.blue_2 = led_2.Led.O.blue;
+      green_2 = led_2.green;
+      red_2 = led_2.red;
+    }
 
   let hierarchical ~clock_freq ~refresh ~tick scope input =
     let module H = Hierarchy.In_scope (I) (O) in
