@@ -344,14 +344,11 @@ module Pwm (W : Integer) = struct
     module Counter = Counter (Bits)
 
     module I = struct
-      type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] value : 'a [@bits bits] }
-      [@@deriving sexp_of, hardcaml]
+      type 'a t = { counter : 'a Counter.I.t; value : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
     end
 
     let create scope (input : Signal.t I.t) =
-      let counter =
-        Counter.hierarchical ~base scope { clock = input.clock; enable = input.enable; reset = input.reset }
-      in
+      let counter = Counter.hierarchical ~base scope input.counter in
       create scope { count = counter.count; value = input.value }
 
     let hierarchical scope (input : Signal.t I.t) =
@@ -380,11 +377,11 @@ let pwm_test_1 =
   let set_value v = inputs.value := Bits.of_int ~width:(Bits.width !(inputs.value)) v in
   set_value 0;
   cycles 1;
-  set inputs.enable;
+  set inputs.counter.enable;
   cycles 1;
-  set inputs.reset;
+  set inputs.counter.reset;
   cycles 1;
-  clear inputs.reset;
+  clear inputs.counter.reset;
   set_value 2;
   cycles 2;
   set_value 1;
@@ -414,13 +411,13 @@ let pwm_test_2 =
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
   let set_value v = inputs.value := Bits.of_int ~width:(Bits.width !(inputs.value)) v in
-  set inputs.enable;
+  set inputs.counter.enable;
   set_value 0;
   cycles 1;
-  set inputs.reset;
+  set inputs.counter.reset;
   cycles 1;
   set_value 2;
-  clear inputs.reset;
+  clear inputs.counter.reset;
   cycles 1;
   set_value 1;
   cycles 5;

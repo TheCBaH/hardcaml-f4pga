@@ -138,16 +138,14 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
     H.hierarchical ~scope ~name (create ~max) input
 
   module WithCounter = struct
+    module Counter = Pwm.WithCounter.Counter
+
     module I = struct
-      type 'a t = { clock : 'a; enable : 'a; reset : 'a; [@rtlsuffix "_"] level : 'a [@bits bits] }
-      [@@deriving sexp_of, hardcaml]
+      type 'a t = { counter : 'a Counter.I.t; level : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
     end
 
     let create ~max scope (input : Signal.t I.t) =
-      let counter =
-        Pwm.WithCounter.Counter.hierarchical ~base:PwmBase.value scope
-          { clock = input.clock; enable = input.enable; reset = input.reset }
-      in
+      let counter = Counter.hierarchical ~base:PwmBase.value scope input.counter in
       create ~max scope { count = counter.count; level = input.level }
   end
 end
@@ -179,7 +177,7 @@ let pwm_control_test =
     inputs.level := Bits.of_int ~width:(Bits.width !(inputs.level)) v;
     2 * base |> cycles
   in
-  set inputs.enable;
+  set inputs.counter.enable;
   set_level 1;
   set_level 2;
   set_level 3;
@@ -226,14 +224,14 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
     H.hierarchical ~scope ~name (create ~color) input
 
   module WithCounter = struct
-    module Counter = PwmControl.Pwm.WithCounter.Counter
+    module Counter = PwmControl.WithCounter.Counter
 
     module I = struct
       type 'a t = { counter : 'a Counter.I.t; level : 'a Level.t } [@@deriving sexp_of, hardcaml]
     end
 
     let create ~color scope (input : Signal.t I.t) =
-      let counter = PwmControl.Pwm.WithCounter.Counter.hierarchical ~base:PwmBase.value scope input.counter in
+      let counter = PwmControl.WithCounter.Counter.hierarchical ~base:PwmBase.value scope input.counter in
       create ~color scope { count = counter.count; level = input.level }
   end
 end
