@@ -44,7 +44,7 @@ let simulate_led ?cycles () =
   Hardcaml_waveterm_interactive.run waves
 
 let build_led () =
-  let scope = Scope.create () in
+  let scope = Scope.create ~flatten_design:true () in
   let name = "led_top" in
   let clock_freq = 100_000_000 in
   let refresh = 10_000 in
