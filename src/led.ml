@@ -271,6 +271,30 @@ let led_control_test =
   set_level 3;
   Hardcaml_waveterm.Waveform.print ~display_height:23 ~display_width:100 ~wave_width:0 waves
 
+module LedStatic = struct
+  module I = struct
+    type 'a t = { clock : 'a; reset : 'a [@rtlsuffix "_"]; enable: 'a; } [@@deriving sexp_of, hardcaml]
+  end
+  module O = struct
+    type 'a t = { blue: 'a; green: 'a; red: 'a; } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create ~blue ~green ~red scope (input : Signal.t I.t) =
+    let base = blue + green + red in
+    let (counter,_) = Util.counter_with_carry ~base ~clock:input.I.clock ~reset:input.I.reset ~increment:input.I.enable () in
+    let open Signal in
+    let ( -- ) = Scope.naming scope in
+    counter -- "counter" |> ignore;
+    let w_red = counter <:. red in
+    let w_green = (~: w_red) &: counter <:. (red+green) in
+    let w_blue = (~: (w_green |: w_red)) &: counter <:. (red+green+blue) in
+    {
+      O.red = w_red;
+      green = w_green;
+      blue = w_blue;
+    }
+end
+
 module LedTop = struct
   module I = struct
     type 'a t = { clock : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
@@ -319,26 +343,19 @@ module LedTop = struct
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
     in
-    let orchid = { Color.red = 218; green = 112; blue = 214 } in
-    let tomato = { Color.red = 255; green = 99; blue = 40 (* 71 *)} in
-    let chocolate = { Color.red = 210; green = 40 (* 105 *); blue = 30 } in
-    (*
-    let orchid = { Color.red = 255; green = 255; blue = 0 } in
-    let tomato = { Color.red = 255; green = 0; blue = 255 } in
-    let chocolate = { Color.red = 0; green = 255; blue = 255 } in
-    *)
+    let teal = { Color.red = 0; green = 128; blue = 128} in
+    let tomato = { Color.red = 255; green = 8; blue = 8(* 71 *) } in
+    let purple = { Color.red = 255; green = 0 (* 105 *); blue = 255} in
     let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
     let const =
       let _ = Signal.width level.count |> Signal.ones in
-      let const =
-        if false then
-          Signal.of_int ~width:(Signal.width level.count) 4
-        else level.count in
-        { Led.Level.l_blue = const; l_green = const; l_red = const} in
+      let const = if false then Signal.of_int ~width:(Signal.width level.count) 4 else level.count in
+      { Led.Level.l_blue = const; l_green = const; l_red = const }
+    in
     let level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count } in
-    let led_0 = Led.create ~color:orchid scope { Led.I.count = counter.count ; level } in
-    let led_1 = Led.create ~color:tomato scope { Led.I.count = counter.count ; level = const } in
-    let led_2 = Led.create ~color:chocolate scope { Led.I.count = counter.count ; level = const } in
+    let led_0 = Led.create ~color:teal scope { Led.I.count = counter.count; level } in
+    let led_1 = Led.create ~color:tomato scope { Led.I.count = counter.count; level = const } in
+    let led_2 = Led.create ~color:purple scope { Led.I.count = counter.count; level = const } in
     {
       O.blue_0 = led_0.Led.O.blue;
       green_0 = led_0.green;
