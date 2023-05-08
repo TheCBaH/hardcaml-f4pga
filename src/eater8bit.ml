@@ -200,14 +200,17 @@ module InitializedMemory = struct
     let ( -- ) = Scope.naming scope in
     let spec = Reg_spec.create ~clock:i.I.bus.clock ~clear:i.I.reset () in
     let addr_next = Bits.num_bits_to_represent rom_len |> wire in
+    let rom_done_next = wire 1 --  "rom_done" in
     let addr = reg spec addr_next -- "rom_addr" in
+    let rom_done = reg spec rom_done_next -- "rom_done" in
     let ready = addr ==:. (rom_len - 1) in
     addr_next <== mux2 ready addr (addr +:. 1);
+    rom_done_next <== ready;
     let data = mux addr rom in
-    let sel rom ram = mux2 ready ram rom in
+    let sel rom ram = mux2 rom_done ram rom in
     let write = {Memory.I.clock=i.I.bus.clock; w_en=sel vdd i.I.bus.w_en;addr=sel (uresize addr Memory.bits_addr) i.I.bus.addr ;w_data=sel data i.I.bus.w_data} in
     let memory = Memory.create scope write in
-    {O.bus = memory; ready}
+    {O.bus = memory; ready=rom_done}
 
 end
 
@@ -249,23 +252,20 @@ let initialized_memory_test =
       if ready = 0 then do_wait ()
       else () in
     do_wait () in
+   wait ();
+  do_read 0;
+  do_read 1;
+  do_read 2;
+  do_write 5 0x55;
+  do_write 1 0xDD;
+  do_write 7 0x77;
+  do_read 1;
+  do_read 5;
   set inputs.reset;
   cycle ();
   clear inputs.reset;
   wait ();
-  do_read 0;
   do_read 1;
-  do_read 2;
-  cycle ();
-  cycle ();
-  do_write 5 0x55;
-  do_write 7 0x77;
-  do_read 5;
   do_read 7;
-  cycle ();
-  do_write 0 0xFF;
-  do_write 2 0xEE;
-  do_read 0;
-  do_read 2;
-  cycle ();
-  Hardcaml_waveterm.Waveform.print ~display_height:24 ~display_width:88 ~wave_width:1 waves
+  do_read 5;
+  Hardcaml_waveterm.Waveform.print ~display_height:24 ~display_width:94 ~wave_width:1 waves
