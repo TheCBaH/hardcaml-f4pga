@@ -21,8 +21,18 @@ utop:
 %.w49:
 	echo '(env (dev (flags (:standard -w -49))))' >> $(basename $@)
 
+REMOVE_TESTS=\
+ hardcaml/test/bin\
+ hardcaml/test/lib\
+ hardcaml/test/native/dune\
+ hardcaml/test/regression\
+ hardcaml/test/synthesis_reports\
+ hardcaml_waveterm/bin\
+ hardcaml_waveterm/test\
+ hardcaml_waveterm/test_interface\
+
 patch: modules/hardcaml_verilator/dune.w49 modules/hardcaml/dune.w49
-	rm -f $(foreach d, test/bin test/lib test/regression test/synthesis_reports, modules/hardcaml/${d}/dune)
+	rm -f $(foreach d, ${REMOVE_TESTS}, modules/${d}/dune)
 
 OFL_BOARD.basys3=basys3
 OFL_BOARD.arty_35=arty_a7_35t
