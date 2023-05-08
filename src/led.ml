@@ -273,26 +273,25 @@ let led_control_test =
 
 module LedStatic = struct
   module I = struct
-    type 'a t = { clock : 'a; reset : 'a [@rtlsuffix "_"]; enable: 'a; } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; reset : 'a; [@rtlsuffix "_"] enable : 'a } [@@deriving sexp_of, hardcaml]
   end
+
   module O = struct
-    type 'a t = { blue: 'a; green: 'a; red: 'a; } [@@deriving sexp_of, hardcaml]
+    type 'a t = { blue : 'a; green : 'a; red : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~blue ~green ~red scope (input : Signal.t I.t) =
     let base = blue + green + red in
-    let (counter,_) = Util.counter_with_carry ~base ~clock:input.I.clock ~reset:input.I.reset ~increment:input.I.enable () in
+    let counter, _ =
+      Util.counter_with_carry ~base ~clock:input.I.clock ~reset:input.I.reset ~increment:input.I.enable ()
+    in
     let open Signal in
     let ( -- ) = Scope.naming scope in
     counter -- "counter" |> ignore;
     let w_red = counter <:. red in
-    let w_green = (~: w_red) &: counter <:. (red+green) in
-    let w_blue = (~: (w_green |: w_red)) &: counter <:. (red+green+blue) in
-    {
-      O.red = w_red;
-      green = w_green;
-      blue = w_blue;
-    }
+    let w_green = ~:w_red &: counter <:. red + green in
+    let w_blue = ~:(w_green |: w_red) &: counter <:. red + green + blue in
+    { O.red = w_red; green = w_green; blue = w_blue }
 end
 
 module LedTop = struct
@@ -343,9 +342,9 @@ module LedTop = struct
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
     in
-    let teal = { Color.red = 0; green = 128; blue = 128} in
-    let tomato = { Color.red = 255; green = 8; blue = 8(* 71 *) } in
-    let purple = { Color.red = 255; green = 0 (* 105 *); blue = 255} in
+    let teal = { Color.red = 0; green = 128; blue = 128 } in
+    let tomato = { Color.red = 255; green = 8; blue = 8 (* 71 *) } in
+    let purple = { Color.red = 255; green = 0 (* 105 *); blue = 255 } in
     let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
     let const =
       let _ = Signal.width level.count |> Signal.ones in

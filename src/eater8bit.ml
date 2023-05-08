@@ -2,8 +2,9 @@ open Hardcaml
 
 module Register = struct
   let bits = 8
+
   module I = struct
-    type 'a t = { clock: 'a; reset: 'a; w_en: 'a; i_data : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; reset : 'a; w_en : 'a; i_data : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -11,19 +12,17 @@ module Register = struct
   end
 
   let create scope i =
-      let ( -- ) = Scope.naming scope in
-      let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
-      let register = Signal.reg_fb ~enable:i.I.w_en ~width:bits ~f:(fun _ -> i.I.i_data ) spec -- "register" in
-      {O.data = register}
+    let ( -- ) = Scope.naming scope in
+    let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
+    let register = Signal.reg_fb ~enable:i.I.w_en ~width:bits ~f:(fun _ -> i.I.i_data) spec -- "register" in
+    { O.data = register }
 end
 
 let register_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Register.I) (Register.O) in
   let waves, sim =
-    Register.create scope
-    |> Simulator.create ~config:Cyclesim.Config.trace_all
-    |> Hardcaml_waveterm.Waveform.create
+    Register.create scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create
   in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
@@ -47,9 +46,6 @@ let register_test =
   set inputs.w_en;
   for i = 4 to 8 do
     data i;
-    cycles 1;
+    cycles 1
   done;
   Hardcaml_waveterm.Waveform.print ~display_height:16 ~display_width:80 ~wave_width:0 waves
-
-
-

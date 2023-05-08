@@ -85,11 +85,10 @@ let counter_with_carry ?base ?bits ?reset_value ~reset ~increment ~clock () =
     | None, None -> assert false
   in
   let open Signal in
-  let (spec,reset) =
-    if reset_value = 0 then
-      (Reg_spec.create ~clock ~clear:reset ()),(fun x -> x)
-    else
-      (Reg_spec.create ~clock ()),(fun x -> mux2 reset (of_int ~width:bits reset_value) x) in
+  let spec, reset =
+    if reset_value = 0 then (Reg_spec.create ~clock ~clear:reset (), fun x -> x)
+    else (Reg_spec.create ~clock (), fun x -> mux2 reset (of_int ~width:bits reset_value) x)
+  in
   let count_next = wire bits in
   let limit = base - 1 in
   let count = reg spec count_next in
