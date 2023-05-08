@@ -1,9 +1,5 @@
 open Hardcaml
 
-(*
-#require "ppx_jane";;
-*)
-
 module Register = struct
   let bits = 8
 
@@ -55,12 +51,6 @@ let register_test =
   done;
   cycles 1;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:0 waves
-
-module Operation = struct
-  module Code = struct
-    type t = Sub | Add [@@deriving sexp_of, enumerate]
-  end
-end
 
 module Alu = struct
   let bits = 8
@@ -191,3 +181,91 @@ let memory_test =
   do_read 7;
   cycle ();
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves
+
+module InitializedMemory = struct
+  module I = struct
+    type 'a t = { bus: 'a Memory.I.t ; reset: 'a [@rtlsuffix "_"] }
+    [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { bus : 'a Memory.O.t ; ready: 'a} [@@deriving sexp_of, hardcaml]
+  end
+
+  let create rom scope i =
+    let rom_len = List.length rom in
+    assert(rom_len >0);
+    assert(rom_len <= Memory.size);
+    let open Signal in
+    let ( -- ) = Scope.naming scope in
+    let spec = Reg_spec.create ~clock:i.I.bus.clock ~clear:i.I.reset () in
+    let addr_next = Bits.num_bits_to_represent rom_len |> wire in
+    let addr = reg spec addr_next -- "rom_addr" in
+    let ready = addr ==:. (rom_len - 1) in
+    addr_next <== mux2 ready addr (addr +:. 1);
+    let data = mux addr rom in
+    let sel rom ram = mux2 ready ram rom in
+    let write = {Memory.I.clock=i.I.bus.clock; w_en=sel vdd i.I.bus.w_en;addr=sel (uresize addr Memory.bits_addr) i.I.bus.addr ;w_data=sel data i.I.bus.w_data} in
+    let memory = Memory.create scope write in
+    {O.bus = memory; ready}
+
+end
+
+let initialized_memory_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (InitializedMemory.I) (InitializedMemory.O) in
+  let rom = List.map (Signal.of_int ~width:Memory.bits) [0x11;0x22;0x33] in
+  let waves, sim = InitializedMemory.create rom scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let set wire v =
+    let width = Bits.width !wire in
+    wire := Bits.of_int ~width v
+  in
+  let cycle () = Cyclesim.cycle sim in
+  let do_write addr data =
+    set inputs.bus.addr addr;
+    set inputs.bus.w_data data;
+    inputs.bus.w_en := Bits.vdd;
+    cycle ()
+  in
+  let do_read addr =
+    inputs.bus.w_en := Bits.gnd;
+    set inputs.bus.addr addr;
+    cycle ()
+  in
+  let cycles n =
+    for _ = 0 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let wait () =
+    let rec do_wait () =
+      cycle ();
+      let outputs = Cyclesim.outputs sim in
+      let read s = Bits.to_int !s in
+      let ready = read outputs.ready in
+      if ready = 0 then do_wait ()
+      else () in
+    do_wait () in
+  set inputs.reset;
+  cycle ();
+  clear inputs.reset;
+  wait ();
+  do_read 0;
+  do_read 1;
+  do_read 2;
+  cycle ();
+  cycle ();
+  do_write 5 0x55;
+  do_write 7 0x77;
+  do_read 5;
+  do_read 7;
+  cycle ();
+  do_write 0 0xFF;
+  do_write 2 0xEE;
+  do_read 0;
+  do_read 2;
+  cycle ();
+  Hardcaml_waveterm.Waveform.print ~display_height:24 ~display_width:88 ~wave_width:1 waves
