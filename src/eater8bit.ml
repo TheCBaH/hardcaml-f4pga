@@ -113,7 +113,7 @@ let alu_test =
   alu Alu.Code.Add 0xF0 0x20;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves
 
-module Memory = struct
+module Ram = struct
   let bits = 8
   let size = 16
   let bits_addr = size - 1 |> Bits.num_bits_to_represent
@@ -146,8 +146,8 @@ end
 
 let memory_test =
   let scope = Scope.create ~flatten_design:true () in
-  let module Simulator = Cyclesim.With_interface (Memory.I) (Memory.O) in
-  let waves, sim = Memory.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let module Simulator = Cyclesim.With_interface (Ram.I) (Ram.O) in
+  let waves, sim = Ram.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let set wire v =
     let width = Bits.width !wire in
@@ -184,18 +184,18 @@ let memory_test =
 
 module InitializedMemory = struct
   module I = struct
-    type 'a t = { bus: 'a Memory.I.t ; reset: 'a [@rtlsuffix "_"] }
+    type 'a t = { bus: 'a Ram.I.t ; reset: 'a [@rtlsuffix "_"] }
     [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { bus : 'a Memory.O.t ; ready: 'a} [@@deriving sexp_of, hardcaml]
+    type 'a t = { bus : 'a Ram.O.t ; ready: 'a} [@@deriving sexp_of, hardcaml]
   end
 
   let create rom scope i =
     let rom_len = List.length rom in
     assert(rom_len >0);
-    assert(rom_len <= Memory.size);
+    assert(rom_len <= Ram.size);
     let open Signal in
     let ( -- ) = Scope.naming scope in
     let spec = Reg_spec.create ~clock:i.I.bus.clock ~clear:i.I.reset () in
@@ -208,8 +208,8 @@ module InitializedMemory = struct
     rom_done_next <== ready;
     let data = mux addr rom in
     let sel rom ram = mux2 rom_done ram rom in
-    let write = {Memory.I.clock=i.I.bus.clock; w_en=sel vdd i.I.bus.w_en;addr=sel (uresize addr Memory.bits_addr) i.I.bus.addr ;w_data=sel data i.I.bus.w_data} in
-    let memory = Memory.create scope write in
+    let write = {Ram.I.clock=i.I.bus.clock; w_en=sel vdd i.I.bus.w_en;addr=sel (uresize addr Ram.bits_addr) i.I.bus.addr ;w_data=sel data i.I.bus.w_data} in
+    let memory = Ram.create scope write in
     {O.bus = memory; ready=rom_done}
 
 end
@@ -217,7 +217,7 @@ end
 let initialized_memory_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (InitializedMemory.I) (InitializedMemory.O) in
-  let rom = List.map (Signal.of_int ~width:Memory.bits) [0x11;0x22;0x33] in
+  let rom = List.map (Signal.of_int ~width:Ram.bits) [0x11;0x22;0x33] in
   let waves, sim = InitializedMemory.create rom scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let set wire v =
@@ -235,11 +235,6 @@ let initialized_memory_test =
     inputs.bus.w_en := Bits.gnd;
     set inputs.bus.addr addr;
     cycle ()
-  in
-  let cycles n =
-    for _ = 0 to n do
-      Cyclesim.cycle sim
-    done
   in
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
