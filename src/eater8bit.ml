@@ -1,5 +1,9 @@
 open Hardcaml
 
+(*
+#require "ppx_jane";;
+*)
+
 module Register = struct
   let bits = 8
 
@@ -52,21 +56,24 @@ let register_test =
   cycles 1;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:0 waves
 
+module Operation = struct
+  module Code = struct
+    type t = Sub | Add [@@deriving sexp_of, enumerate]
+  end
+end
 
 module Alu = struct
   let bits = 8
 
-  (*
   module Operation = struct
     module Code = struct
       type t = Sub | Add [@@deriving sexp_of, compare, enumerate]
     end
-    include Interface.Make_enums(Code)
+    include Enum.Make_enums(Code)
   end
-  *)
 
   module I = struct
-    type 'a t = { op : 'a; a : 'a; [@bits bits] b : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { op : 'a Operation.Binary.t; a : 'a; [@bits bits] b : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -80,7 +87,10 @@ module Alu = struct
     let b = succ bits |> Signal.uresize i.I.b in
     let add = a +: b in
     let sub = a -: b in
-    let result = mux2 i.I.op add sub in
+    let result = Operation.Binary.Of_signal.match_ i.I.op [
+      Add, add;
+      Sub, sub;
+    ] in
     let carry = msb result in
     let data = lsbs result in
     let zero = data ==:. 0 in
@@ -98,14 +108,14 @@ let alu_test =
   let alu op a b =
     set inputs.a a;
     set inputs.b b;
-    inputs.op := Bits.of_int ~width:1 op;
+    Alu.Operation.Binary.sim_set inputs.op op;
     Cyclesim.cycle sim
   in
-  alu 1 0x2 0x4;
-  alu 0 0x6 0x1;
-  alu 0 0x3 0x3;
-  alu 0 0x1 0x3;
-  alu 1 0x70 0x80;
-  alu 1 0xF0 0x10;
-  alu 1 0xF0 0x20;
+  alu Alu.Operation.Code.Add 0x2 0x4;
+  alu Alu.Operation.Code.Sub 0x6 0x1;
+  alu Alu.Operation.Code.Sub 0x3 0x3;
+  alu Alu.Operation.Code.Sub 0x1 0x3;
+  alu Alu.Operation.Code.Add 0x70 0x80;
+  alu Alu.Operation.Code.Add 0xF0 0x10;
+  alu Alu.Operation.Code.Add 0xF0 0x20;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves

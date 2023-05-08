@@ -76,3 +76,13 @@ let main () =
   | _ -> "Not supported mode " ^ !mode |> failwith
 
 let () = main ()
+
+module Operation = struct
+  module Code = struct
+    type t = Sub | Add [@@deriving sexp_of, compare]
+  end
+  module O = struct
+    type 'a t = { carry : 'a; zero : 'a } [@@deriving sexp_of, hardcaml]
+  end
+end;;
+

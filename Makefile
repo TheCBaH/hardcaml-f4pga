@@ -16,7 +16,7 @@ ocaml_clean:
 	rm -f main.v
 
 utop:
-	opam exec dune $@
+	opam exec dune exec ./hardcaml.exe
 
 %.w49:
 	echo '(env (dev (flags (:standard -w -49))))' >> $(basename $@)
