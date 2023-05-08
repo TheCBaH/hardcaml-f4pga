@@ -52,8 +52,16 @@ let register_test =
   cycles 1;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:0 waves
 
+
 module Alu = struct
   let bits = 8
+
+  module Operation = struct
+    module Code = struct
+      type t = Sub | Add [@@deriving sexp_of, compare, enumerate]
+    end
+    include Interface.Make_enums(Code)
+  end
 
   module I = struct
     type 'a t = { op : 'a; a : 'a; [@bits bits] b : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
