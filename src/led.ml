@@ -170,7 +170,7 @@ let pwm_control_test =
     |> Hardcaml_waveterm.Waveform.create
   in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -253,7 +253,7 @@ let led_control_test =
   let color = { Color.red = 2; Color.blue = 4; Color.green = 7 } in
   let waves, sim = Led.WithCounter.create ~color scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in

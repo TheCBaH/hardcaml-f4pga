@@ -29,7 +29,7 @@ let register_test =
   let clear wire = wire := Bits.gnd in
   let data v = inputs.w_data := Bits.of_int ~width:Register.bits v in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -50,7 +50,7 @@ let register_test =
     cycles 1
   done;
   cycles 1;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves
 
 module Alu = struct
   let bits = 8
@@ -369,7 +369,7 @@ let pc_test =
   in
   let inputs = Cyclesim.inputs sim in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -388,8 +388,8 @@ let pc_test =
   clear inputs.enable;
   cycles 2;
   set inputs.enable;
-  cycles 2;
-  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:80 ~wave_width:1 waves
+  cycles 5;
+  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:70 ~wave_width:1 waves
 
 module Output = struct
   module I = Register.I

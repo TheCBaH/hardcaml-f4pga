@@ -49,7 +49,7 @@ let display_test =
   let set wire = Cyclesim.in_port sim wire := Bits.vdd in
   (* let clear wire = Cyclesim.in_port sim wire := Bits.gnd in *)
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -64,7 +64,7 @@ let display_test =
   let display_rules =
     Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _segment; _anode ] ~wave_format:Bit; default ]
   in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:20 ~display_width:67 ~wave_width:3 waves
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:20 ~display_width:47 ~wave_width:3 waves
 
 let multi_counter ?base ?bits ~digits ~reset ~increment ~clock () =
   let rec make counters increment left =
@@ -86,7 +86,7 @@ let multi_counter_test =
   in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -95,7 +95,7 @@ let multi_counter_test =
   cycles 2;
   Cyclesim.in_port sim _reset := Bits.gnd;
   cycles 12;
-  Hardcaml_waveterm.Waveform.print ~display_height:12 ~display_width:80 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:12 ~display_width:70 ~wave_width:0 waves
 
 let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
   let open Signal in
@@ -129,7 +129,7 @@ let clock_top_test =
   in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in

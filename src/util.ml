@@ -44,7 +44,7 @@ let pulse_test =
   let waves, sim = Pulse.create ~length:4 scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -67,8 +67,7 @@ let pulse_test =
   cycles 1;
   clear inputs.reset;
   cycles 5;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves;
-  Cyclesim.circuit sim
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:60 ~wave_width:0 waves
 
 let counter_with_carry ?base ?bits ?reset_value ~reset ~increment ~clock () =
   let reset_value = Option.value ~default:0 reset_value in
@@ -137,7 +136,7 @@ let counter_with_carry_test_1 =
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -156,7 +155,7 @@ let counter_with_carry_test_1 =
   cycles 4;
   set inputs.enable;
   cycles 7;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:100 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves
 
 let counter_with_carry_test_2 =
   let scope = Scope.create ~flatten_design:true () in
@@ -178,7 +177,7 @@ let counter_with_carry_test_2 =
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -197,7 +196,7 @@ let counter_with_carry_test_2 =
   cycles 2;
   clear inputs.reset;
   cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:85 ~wave_width:0 waves
 
 let trigger_gen ?divider ?target ?(exact = true) ?enable ?clock_freq ~reset ~clock scope =
   let enable = Option.value ~default:Signal.vdd enable in
@@ -257,7 +256,7 @@ let trigger_test =
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -270,7 +269,7 @@ let trigger_test =
   cycles 2;
   clear inputs.reset;
   cycles 10;
-  Hardcaml_waveterm.Waveform.print ~display_height:11 ~display_width:88 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:11 ~display_width:80 ~wave_width:0 waves
 
 module TriggerWithEnable = struct
   module I = struct
@@ -302,7 +301,7 @@ let trigger_with_enable_test =
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -383,7 +382,7 @@ let pwm_test_1 =
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
   let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -407,8 +406,8 @@ let pwm_test_1 =
   set_value 0;
   cycles 1;
   set_value 3;
-  cycles 8;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves
+  cycles 10;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:70 ~wave_width:0 waves
 
 let pwm_test_2 =
   let scope = Scope.create ~flatten_design:true () in
@@ -419,7 +418,7 @@ let pwm_test_2 =
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
   let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
-    for _ = 0 to n do
+    for _ = 1 to n do
       Cyclesim.cycle sim
     done
   in
@@ -441,7 +440,7 @@ let pwm_test_2 =
   cycles 5;
   set_value 3;
   cycles 10;
-  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:60 ~wave_width:0 waves
 
 module SegmentEncoder = struct
   module I = struct

@@ -38,7 +38,7 @@ let simulate_led ?cycles () =
     let clock_freq, refresh, tick = (20_000, 10_000, 40) in
     Led.LedTop.create ~clock_freq ~refresh ~tick scope |> simulator |> Hardcaml_waveterm.Waveform.create
   in
-  for _i = 0 to cycles do
+  for _i = 1 to cycles do
     Cyclesim.cycle sim
   done;
   Hardcaml_waveterm_interactive.run waves
