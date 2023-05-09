@@ -442,3 +442,60 @@ let pwm_test_2 =
   set_value 3;
   cycles 10;
   Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:80 ~wave_width:0 waves
+
+module SegmentEncoder = struct
+  module I = struct
+    type 'a t = { digit : 'a [@bits 4] } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { segment : 'a [@bits 7] } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create scope i =
+    ignore scope;
+    let display =
+      [
+        ('0', "1000000");
+        ('1', "1111001");
+        ('2', "0100100");
+        ('3', "0110000");
+        ('4', "0011001");
+        ('5', "0010010");
+        ('6', "0000010");
+        ('7', "1111000");
+        ('8', "0000000");
+        ('9', "0010000");
+        ('A', "0001000");
+        ('b', "0000011");
+        ('C', "1000110");
+        ('d', "0100001");
+        ('E', "0000110");
+        ('F', "0001110");
+      ]
+    in
+    let open Signal in
+    let segment = mux i.I.digit (List.map (fun (_, s) -> of_string ("7'b" ^ s)) display) in
+    { O.segment }
+end
+
+let segment_encode_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (SegmentEncoder.I) (SegmentEncoder.O) in
+  let waves, sim = SegmentEncoder.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let set wire v =
+    let width = Bits.width !wire in
+    wire := Bits.of_int ~width v
+  in
+  let set n =
+    let inputs = Cyclesim.inputs sim in
+    set inputs.digit n;
+    Cyclesim.cycle sim
+  in
+  set 0;
+  set 1;
+  set 8;
+  set 0xb;
+  set 0xF;
+  let display_rules = Hardcaml_waveterm.Display_rule.[ port_name_is "segment" ~wave_format:Bit; default ] in
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:4 waves

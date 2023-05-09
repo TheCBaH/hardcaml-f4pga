@@ -1,52 +1,8 @@
 open Hardcaml
 
-let segment_encode ~digit =
-  let display =
-    [
-      ('0', "1000000");
-      ('1', "1111001");
-      ('2', "0100100");
-      ('3', "0110000");
-      ('4', "0011001");
-      ('5', "0010010");
-      ('6', "0000010");
-      ('7', "1111000");
-      ('8', "0000000");
-      ('9', "0010000");
-      ('A', "0001000");
-      ('b', "0000011");
-      ('C', "1000110");
-      ('d', "0100001");
-      ('E', "0000110");
-      ('F', "0001110");
-    ]
-  in
-  let open Signal in
-  let segment = mux digit (List.map (fun (_, s) -> of_string ("7'b" ^ s)) display) in
-  segment
-
-let segment_encode_test =
-  let _digit = "digit" in
-  let digit = Signal.input _digit 4 in
-  let segment = segment_encode ~digit in
-  let _segment = "segment" in
-  let circuit = Circuit.create_exn ~name:"segment_encode" [ Signal.output _segment segment ] in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let set wire n =
-    Cyclesim.in_port sim wire := Bits.of_int ~width:4 n;
-    Cyclesim.cycle sim
-  in
-  set _digit 0;
-  set _digit 1;
-  set _digit 8;
-  set _digit 0xb;
-  set _digit 0xF;
-  let display_rules = Hardcaml_waveterm.Display_rule.[ port_name_is _segment ~wave_format:Bit; default ] in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:4 waves
-
 type digit = { data : Signal.t; enable : Signal.t; dot : Signal.t }
 
-let display ~clock ~digits ~next ~reset =
+let display scope ~clock ~digits ~next ~reset =
   let digits_count = List.length digits in
   assert (digits_count > 0);
   let spec = Reg_spec.create ~clock ~clear:reset () in
@@ -61,13 +17,14 @@ let display ~clock ~digits ~next ~reset =
     |> concat_lsb
   in
   let data = mux digit (List.map (fun d -> d.data) digits) in
-  let segment = segment_encode ~digit:data in
+  let segment = Util.SegmentEncoder.create scope { digit = data } in
   let dot = mux digit (List.map (fun d -> ~:(d.dot)) digits) in
   let digit_next = mux2 next (mux2 (digit ==:. digits_count - 1) (width digit |> zero) (digit +:. 1)) digit in
   digit <== reg spec digit_next;
-  (anode, segment, dot)
+  (anode, segment.segment, dot)
 
 let display_test =
+  let scope = Scope.create ~flatten_design:true () in
   let _digit_0 = "digit_0" in
   let _digit_1 = "digit_1" in
   let _dot = "dot" in
@@ -83,7 +40,7 @@ let display_test =
   let dot = Signal.input _dot 1 in
   let digits = [ { data = digit_0; enable; dot }; { data = digit_1; enable; dot } ] in
   let reset = Signal.input _reset 1 in
-  let anode, segment, dot = display ~clock ~digits ~reset ~next:enable in
+  let anode, segment, dot = display scope ~clock ~digits ~reset ~next:enable in
   let circuit =
     Circuit.create_exn ~name:"display"
       [ Signal.output _anode anode; Signal.output _segment segment; Signal.output "_dot" dot ]
@@ -153,7 +110,7 @@ let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
       digits
   in
   let refresh = Util.Trigger.create ~clock_freq ~target:refresh ~exact:false scope { reset; clock } in
-  let anode, segment, dot = display ~clock ~digits ~reset ~next:refresh.pulse in
+  let anode, segment, dot = display scope ~clock ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 
 let clock_top_test =

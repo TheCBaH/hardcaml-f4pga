@@ -390,3 +390,7 @@ let pc_test =
   set inputs.enable;
   cycles 2;
   Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:80 ~wave_width:1 waves
+
+module Output = struct
+  module I = Register.I
+end
