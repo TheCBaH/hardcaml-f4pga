@@ -54,6 +54,15 @@ let build_led () =
   let output_mode = to_directory in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 
+let build_eater () =
+  let scope = Scope.create ~flatten_design:true () in
+  let name = "eater_top" in
+  let module TopCircuit = Circuit.With_interface (Eater8bit.CpuControl.I) (Eater8bit.CpuControl.O) in
+  let rom = List.map (Signal.of_int ~width:8) [ 0x11; 0x22; 0x33 ] in
+  let circuit = Eater8bit.CpuControl.create ~rom scope |> TopCircuit.create_exn ~name in
+  let output_mode = to_directory in
+  Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
+
 let main () =
   let cycles = ref 0 in
   let circuit = ref "led" in
@@ -72,7 +81,8 @@ let main () =
   | "" ->
       build_clock ();
       build_reset ();
-      build_led ()
+      build_led ();
+      build_eater ()
   | _ -> "Not supported mode " ^ !mode |> failwith
 
 let () = main ()
