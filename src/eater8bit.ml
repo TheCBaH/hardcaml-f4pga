@@ -4,7 +4,7 @@ module Register = struct
   let bits = 8
 
   module I = struct
-    type 'a t = { clock : 'a; reset : 'a; w_en : 'a; i_data : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; reset : 'a; w_en : 'a; w_data : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -14,7 +14,7 @@ module Register = struct
   let create scope i =
     let ( -- ) = Scope.naming scope in
     let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
-    let register = Signal.reg_fb ~enable:i.I.w_en ~width:bits ~f:(fun _ -> i.I.i_data) spec -- "register" in
+    let register = Signal.reg_fb ~enable:i.I.w_en ~width:bits ~f:(fun _ -> i.I.w_data) spec -- "register" in
     { O.data = register }
 end
 
@@ -27,7 +27,7 @@ let register_test =
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
-  let data v = inputs.i_data := Bits.of_int ~width:Register.bits v in
+  let data v = inputs.w_data := Bits.of_int ~width:Register.bits v in
   let cycles n =
     for _ = 0 to n do
       Cyclesim.cycle sim
@@ -393,4 +393,165 @@ let pc_test =
 
 module Output = struct
   module I = Register.I
+
+  module O = struct
+    type 'a t = {
+      high : 'a Util.SegmentEncoder.O.t; [@rtlmangle true]
+      low : 'a Util.SegmentEncoder.O.t; [@rtlmangle true]
+    }
+    [@@deriving sexp_of, hardcaml]
+  end
+
+  let create scope i =
+    let reg = Register.create scope i in
+    let high, low = Signal.split_in_half_msb reg.Register.O.data in
+    {
+      O.high = Util.SegmentEncoder.create scope { Util.SegmentEncoder.I.digit = high };
+      low = Util.SegmentEncoder.create scope { Util.SegmentEncoder.I.digit = low };
+    }
 end
+
+let output_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (Output.I) (Output.O) in
+  let waves, sim = Output.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let data v =
+    inputs.w_data := Bits.of_int ~width:Register.bits v;
+    cycles 1
+  in
+  cycles 1;
+  set inputs.w_en;
+  data 0x11;
+  data 0x22;
+  clear inputs.w_en;
+  data 0x33;
+  set inputs.w_en;
+  cycles 1;
+  data 0x81;
+  cycles 1;
+  let display_rules =
+    Hardcaml_waveterm.Display_rule.
+      [ Re.Posix.re "(segment)" |> Re.Posix.compile |> port_name_matches ~wave_format:Bit; default ]
+  in
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:18 ~display_width:80 ~wave_width:3 waves
+
+module Instruction = struct
+  module I = Register.I
+
+  module O = struct
+    type 'a t = { code : 'a; [@bits 4] addr : 'a [@bits Ram.bits_addr] } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create scope i =
+    let reg = Register.create scope i in
+    let code, addr = Signal.split_in_half_msb reg.Register.O.data in
+    { O.code; addr }
+end
+
+module MemoryAddr = struct
+  module I = Register.I
+
+  module O = struct
+    type 'a t = { data : 'a [@bits Ram.bits_addr] } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create scope i =
+    let reg = Register.create scope i in
+    { O.data = Signal.uresize reg.data Ram.bits_addr }
+end
+
+module CpuControl = struct
+  module Control = struct
+    type 'a t = {
+      _HLT : 'a; (* Halt clock *)
+      _MI : 'a; (* Memory address register in *)
+      _RI : 'a; (* RAM data in *)
+      _RO : 'a; (* RAM data out *)
+      _IO : 'a; (* Instruction register out *)
+      _II : 'a; (* Instruction register in *)
+      _AI : 'a; (* A register in *)
+      _AO : 'a; (* A register out *)
+      _EO : 'a; (* ALU out *)
+      _SU : 'a; (* ALU substract *)
+      _BI : 'a; (* B register in *)
+      _BO : 'a; (* B register out *)
+      _OI : 'a; (* Output register in *)
+      _CE : 'a; (* Program counter enble *)
+      _CO : 'a; (* Program counter out *)
+      _J : 'a; (* Jump (Program counter in) *)
+      _FI : 'a; (* Jump (Program counter in) *)
+    }
+    [@@deriving sexp_of, hardcaml]
+  end
+
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; control : 'a Control.t } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { segment : 'a Output.O.t; opcode : 'a; [@bits 4] carry : 'a; zero : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create rom scope i =
+    let open Signal in
+    let clock = i.I.clock in
+    let reset = i.I.reset in
+    let w_data = wire Ram.bits in
+    let memory_addr = MemoryAddr.create scope { Register.I.clock; reset; w_en = i.I.control._MI; w_data } in
+    let memory =
+      MemoryWithRom.create rom scope { MemoryWithRom.I.clock; w_en = i.control._RI; addr = memory_addr.data; w_data }
+    in
+    let output = Output.create scope { Output.I.clock; reset; w_en = i.control._OI; w_data } in
+    let a = Register.create scope { Register.I.clock; reset; w_en = i.control._AI; w_data } in
+    let b = Register.create scope { Register.I.clock; reset; w_en = i.control._BI; w_data } in
+    let pc =
+      Pc.create scope
+        { Pc.I.clock; reset; enable = i.control._CE; w_en = i.control._J; w_data = uresize w_data Ram.bits_addr }
+    in
+    let instruction = Instruction.create scope { Instruction.I.clock; reset; w_en = i.control._II; w_data } in
+    let alu_op = Alu.Binary.Of_signal.wires () in
+    let alu = Alu.create scope { Alu.I.op = alu_op; a = a.Register.O.data; b = b.Register.O.data } in
+    let bus = Always.Variable.wire ~default:(zero Ram.bits) in
+    Always.(
+      compile
+        [
+          when_ i.control._RO [ bus <-- memory.data ];
+          when_ i.control._IO [ bus <-- uresize instruction.addr Ram.bits ];
+          when_ i.control._AO [ bus <-- a.data ];
+          when_ i.control._BO [ bus <-- b.data ];
+          when_ i.control._EO [ bus <-- alu.data ];
+          when_ i.control._CO [ bus <-- pc.data ];
+        ]);
+    { O.segment = output; opcode = instruction.code; carry = alu.carry; zero = alu.zero }
+end
+
+let cpu_control_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (CpuControl.I) (CpuControl.O) in
+  let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33 ] in
+  let waves, sim =
+    CpuControl.create rom scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
+  in
+  (*
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  *)
+  let cycles n =
+    for _ = 0 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  cycles 1;
+  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:0 waves;
+  Stdlib.exit 0
