@@ -352,10 +352,10 @@ module Pc = struct
     let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
     let open Signal in
     let register =
-      reg_fb ~enable:i.I.enable ~width:bits
+      reg_fb ~width:bits
         ~f:(fun prev ->
           let next = prev +:. 1 in
-          mux2 i.I.w_en i.I.w_data next)
+          mux2 i.I.enable next prev |> mux2 i.I.w_en i.I.w_data)
         spec
     in
     { O.data = register }
@@ -387,9 +387,12 @@ let pc_test =
   cycles 3;
   clear inputs.enable;
   cycles 2;
+  jump 3;
+  cycles 2;
+  jump 9;
   set inputs.enable;
-  cycles 5;
-  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:70 ~wave_width:1 waves
+  cycles 8;
+  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:60 ~wave_width:0 waves
 
 module Output = struct
   module I = Register.I
@@ -526,6 +529,7 @@ module CpuControl = struct
     a.data -- "A" |> ignore;
     b.data -- "B" |> ignore;
     pc.data -- "PC" |> ignore;
+    memory_addr.data -- "ADDR" |> ignore;
     Always.(
       compile
         [
@@ -543,7 +547,7 @@ end
 let cpu_control_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (CpuControl.I) (CpuControl.O) in
-  let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33 ] in
+  let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x01; 0x12; 0x23; 0x34; 0x45; 0x56; 0x76;] in
   let waves, sim =
     CpuControl.create ~rom scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
@@ -563,7 +567,46 @@ let cpu_control_test =
     List.iter clear controls
   in
   let c = inputs.control in
-  step [ c._MI; c._CO ];
-  step [ c._RO; c._II; c._CE ];
+  let command c =
+    List.iter step c in
+  let _NOP = [
+    [ c._MI; c._CO ]; (* cycle 1 *)
+    [ c._RO; c._II; c._CE ]; (* cycle 2 *)
+  ] in
+  let _LDA = _NOP @ [
+    [ c._IO; c._MI ];
+    [ c._RO; c._AI ];
+  ] in
+  let _ADD = _NOP @ [
+    [ c._IO; c._MI ];
+    [ c._RO; c._BI ];
+    [ c._EO; c._AI; c._FI ];
+  ] in
+  let _SUB = _NOP @ [
+    [ c._IO; c._MI ];
+    [ c._RO; c._BI ];
+    [ c._EO; c._AI; c._SU; c._FI ];
+  ] in
+  let _STA = _NOP @ [
+    [ c._IO; c._MI ];
+    [ c._AO; c._RI ];
+  ] in
+  let _LDI = _NOP @ [
+    [ c._IO; c._AI ];
+  ] in
+  let _JMP = _NOP @ [
+    [ c._IO; c._J ];
+  ] in
+  let _OUT = _NOP @ [
+    [ c._AO; c._OI ];
+  ] in
+  command _NOP;
+  command _LDA;
+  command _ADD;
+  command _SUB;
+  command _STA;
+  command _LDI;
+  command _JMP;
+  command _OUT;
   cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:58 ~display_width:80 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:61 ~display_width:90 ~wave_width:0 waves
