@@ -291,15 +291,8 @@ module LedTop = struct
     type 'a t = { clock : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
   end
 
-  module Levels = struct
-    let value = 16
-  end
-
-  module PwmBase = struct
-    let value = 256
-  end
-
-  module Led = Led (Levels) (PwmBase)
+  module Levels = (val Util.integer 16)
+  module Led = Led (Levels) (val Util.integer 256)
 
   module O = struct
     type 'a t = {
@@ -326,10 +319,7 @@ module LedTop = struct
       Util.TriggerWithEnable.hierarchical ~divider scope
         { reset = input.reset; clock = input.clock; enable = _10kHz.pulse }
     in
-    let module CounterBits = struct
-      let value = Led.PwmControl.bits
-    end in
-    let module Counter = Util.Counter (CounterBits) in
+    let module Counter = Util.Counter (val Util.integer Led.PwmControl.bits) in
     let level =
       Counter.hierarchical ~base:Levels.value scope
         { Counter.I.reset = input.I.reset; enable = _1Hz.pulse; clock = input.I.clock }
