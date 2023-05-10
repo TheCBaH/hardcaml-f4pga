@@ -57,9 +57,9 @@ let build_led () =
 let build_eater () =
   let scope = Scope.create ~flatten_design:true () in
   let name = "eater_top" in
-  let module TopCircuit = Circuit.With_interface (Eater8bit.CpuControl.I) (Eater8bit.CpuControl.O) in
+  let module TopCircuit = Circuit.With_interface (Eater8bit.CpuExecutor.I) (Eater8bit.CpuExecutor.O) in
   let rom = List.map (Signal.of_int ~width:8) [ 0x11; 0x22; 0x33 ] in
-  let circuit = Eater8bit.CpuControl.create ~rom scope |> TopCircuit.create_exn ~name in
+  let circuit = Eater8bit.CpuExecutor.create ~rom scope |> TopCircuit.create_exn ~name in
   let output_mode = to_directory in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 

@@ -102,6 +102,11 @@ module type Integer = sig
   val value : int
 end
 
+let integer v : (module Integer)=
+  (module struct
+     let value = v
+  end)
+
 module Counter (Bits : Integer) = struct
   module I = struct
     type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
@@ -126,9 +131,7 @@ end
 
 let counter_with_carry_test_1 =
   let scope = Scope.create ~flatten_design:true () in
-  let module CounterBits = struct
-    let value = 3
-  end in
+  let (module CounterBits) = integer 3 in
   let module Counter = Counter (CounterBits) in
   let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
   let waves, sim = Counter.create ~base:5 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
@@ -349,9 +352,8 @@ module Pwm (W : Integer) = struct
     let name = Printf.sprintf "pwm_%u" base in
     H.hierarchical ~scope ~name create input
 
-  module CounterBits = struct
-    let value = bits
-  end
+  let counterBits = integer bits
+  module CounterBits = (val counterBits: Integer)
 
   module Counter = struct
     include Counter (CounterBits)
@@ -374,9 +376,7 @@ module Pwm (W : Integer) = struct
 end
 
 let pwm_test_1 =
-  let module Int4 : Integer = struct
-    let value = 4
-  end in
+  let (module Int4) = integer 4 in
   let module Pwm = Pwm (Int4) in
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
@@ -411,9 +411,7 @@ let pwm_test_1 =
 
 let pwm_test_2 =
   let scope = Scope.create ~flatten_design:true () in
-  let module Int4 : Integer = struct
-    let value = 4
-  end in
+  let (module Int4) = integer 4 in
   let module Pwm = Pwm (Int4) in
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
   let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in

@@ -488,7 +488,7 @@ module Flags = struct
     { O.carry = flag i.I.w_carry; zero = flag i.I.w_zero }
 end
 
-module CpuControl = struct
+module CpuExecutor = struct
   module Control = struct
     type 'a t = {
       _HLT : 'a; (* Halt clock *)
@@ -516,8 +516,12 @@ module CpuControl = struct
     type 'a t = { clock : 'a; enable : 'a; reset : 'a; control : 'a Control.t } [@@deriving sexp_of, hardcaml]
   end
 
+  module State = struct
+    type 'a t = { opcode : 'a; [@bits 4] flags: 'a Flags.O.t } [@@deriving sexp_of, hardcaml]
+  end
+
   module O = struct
-    type 'a t = { segment : 'a Output.O.t; opcode : 'a; [@bits 4] carry : 'a; zero : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { segment : 'a Output.O.t; state: 'a State.t} [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom scope i =
@@ -559,15 +563,16 @@ module CpuControl = struct
           when_ i.control._RO [ bus <-- memory.data ];
         ]);
     w_data <== bus.value;
-    { O.segment = output; opcode = instruction.code; carry = flags.carry; zero = flags.zero }
+    let state = {State.opcode = instruction.code; flags} in
+    { O.segment = output; state }
 end
 
 let cpu_control_test =
   let scope = Scope.create ~flatten_design:true () in
-  let module Simulator = Cyclesim.With_interface (CpuControl.I) (CpuControl.O) in
+  let module Simulator = Cyclesim.With_interface (CpuExecutor.I) (CpuExecutor.O) in
   let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x01; 0x12; 0x23; 0x34; 0x45; 0x56; 0x76 ] in
   let waves, sim =
-    CpuControl.create ~rom scope
+    CpuExecutor.create ~rom scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
     |> Hardcaml_waveterm.Waveform.create
   in
@@ -635,6 +640,51 @@ let cpu_control_test =
   command _OUT;
   cycles 4;
   Hardcaml_waveterm.Waveform.print ~display_height:63 ~display_width:90 ~wave_width:0 waves
+
+module Counter (Max: Util.Integer) = struct
+  let bits = Max.value - 1 |> Bits.num_bits_to_represent
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; clear : 'a; reset : 'a; } [@@deriving sexp_of, hardcaml]
+  end
+  module O = struct
+    type 'a t = { data : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+  end
+  let create scope i =
+    ignore scope;
+    let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
+    let open Signal in
+    let counter = reg_fb ~enable:i.I.enable ~width:bits ~f:(
+      fun prev ->
+          let next = prev +:. 1 in
+          let carry =
+            if Max.value = 1 lsl bits then
+              gnd
+            else
+              next ==:. Max.value in
+          let zero = zero bits in
+          let clear = carry |: i.I.clear in
+          mux2 clear zero next
+        ) spec in
+    {O.data = counter}
+end
+
+module Control = struct
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu: 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = CpuExecutor.State
+
+  (*
+  let create scope i =
+    let max_cycles = 5 in
+    let MaxCycles = Utils.Int
+    let Cycle = Cycle()
+    let cycle = Cycle.create
+    let
+  *)
+
+end
 
 module Isa = struct
   module Control = struct
