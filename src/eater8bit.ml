@@ -471,6 +471,23 @@ module MemoryAddr = struct
     { O.data = Signal.uresize reg.data Ram.bits_addr }
 end
 
+module Flags = struct
+  module I = struct
+    type 'a t = { clock : 'a; reset : 'a; w_en : 'a; w_carry : 'a; w_zero : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { carry : 'a; zero : 'a } [@@deriving sexp_of, hardcaml]
+  end
+
+  let create scope i =
+    ignore scope;
+    let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
+    let open Signal in
+    let flag v = reg_fb ~width:1 ~enable:i.I.w_en ~f:(fun _ -> v) spec in
+    { O.carry = flag i.I.w_carry; zero = flag i.I.w_zero }
+end
+
 module CpuControl = struct
   module Control = struct
     type 'a t = {
@@ -520,11 +537,11 @@ module CpuControl = struct
       Pc.create scope
         { Pc.I.clock; reset; enable = i.control._CE; w_en = i.control._J; w_data = uresize w_data Ram.bits_addr }
     in
-    let instruction = Instruction.create scope { Instruction.I.clock; reset; w_en = i.control._II; w_data } in
+    let instruction = Instruction.create scope { clock; reset; w_en = i.control._II; w_data } in
     let alu =
       let op = Alu.Binary.Of_signal.of_raw i.control._SU in
-      Alu.create scope { Alu.I.op; a = a.Register.O.data; b = b.Register.O.data }
-    in
+      Alu.create scope { Alu.I.op; a = a.Register.O.data; b = b.Register.O.data } in
+    let flags = Flags.create scope {clock; reset; w_en = i.control._FI; w_carry=alu.carry; w_zero=alu.zero} in
     let bus = Always.Variable.wire ~default:(zero Ram.bits) in
     a.data -- "A" |> ignore;
     b.data -- "B" |> ignore;
@@ -541,7 +558,7 @@ module CpuControl = struct
           when_ i.control._RO [ bus <-- memory.data ];
         ]);
     w_data <== bus.value;
-    { O.segment = output; opcode = instruction.code; carry = alu.carry; zero = alu.zero }
+    { O.segment = output; opcode = instruction.code; carry = flags.carry; zero = flags.zero }
 end
 
 let cpu_control_test =
