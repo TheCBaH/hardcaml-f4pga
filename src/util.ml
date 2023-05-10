@@ -350,7 +350,7 @@ module Pwm (W : Integer) = struct
     let name = Printf.sprintf "pwm_%u" base in
     H.hierarchical ~scope ~name create input
 
-  module Counter = Counter (val integer bits)
+  module Counter = Counter ((val integer bits))
 
   module WithCounter = struct
     module I = struct
