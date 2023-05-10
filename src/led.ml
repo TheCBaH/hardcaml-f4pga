@@ -154,12 +154,8 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
 end
 
 let pwm_control_test =
-  let module Levels = struct
-    let value = 4
-  end in
-  let module Base = struct
-    let value = 8
-  end in
+  let (module Levels) = Util.integer 4 in
+  let (module Base) = Util.integer 8 in
   let scope = Scope.create ~flatten_design:true () in
   let module PwmControl = PwmControl (Levels) (Base) in
   let module Simulator = Cyclesim.With_interface (PwmControl.WithCounter.I) (PwmControl.O) in
@@ -240,12 +236,8 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
 end
 
 let led_control_test =
-  let module Levels = struct
-    let value = 4
-  end in
-  let module Base = struct
-    let value = 8
-  end in
+  let (module Levels) = Util.integer 4 in
+  let (module Base) = Util.integer 8 in
   let scope = Scope.create ~flatten_design:true () in
   let module Led = Led (Levels) (Base) in
   let module Simulator = Cyclesim.With_interface (Led.WithCounter.I) (Led.O) in

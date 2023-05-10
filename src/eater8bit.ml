@@ -517,11 +517,11 @@ module CpuExecutor = struct
   end
 
   module State = struct
-    type 'a t = { opcode : 'a; [@bits 4] flags: 'a Flags.O.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { opcode : 'a; [@bits 4] flags : 'a Flags.O.t } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { segment : 'a Output.O.t; state: 'a State.t} [@@deriving sexp_of, hardcaml]
+    type 'a t = { segment : 'a Output.O.t; state : 'a State.t } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom scope i =
@@ -563,7 +563,7 @@ module CpuExecutor = struct
           when_ i.control._RO [ bus <-- memory.data ];
         ]);
     w_data <== bus.value;
-    let state = {State.opcode = instruction.code; flags} in
+    let state = { State.opcode = instruction.code; flags } in
     { O.segment = output; state }
 end
 
@@ -641,36 +641,37 @@ let cpu_control_test =
   cycles 4;
   Hardcaml_waveterm.Waveform.print ~display_height:63 ~display_width:90 ~wave_width:0 waves
 
-module Counter (Max: Util.Integer) = struct
+module Counter (Max : Util.Integer) = struct
   let bits = Max.value - 1 |> Bits.num_bits_to_represent
+
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; clear : 'a; reset : 'a; } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; clear : 'a; reset : 'a } [@@deriving sexp_of, hardcaml]
   end
+
   module O = struct
     type 'a t = { data : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
   end
+
   let create scope i =
     ignore scope;
     let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
     let open Signal in
-    let counter = reg_fb ~enable:i.I.enable ~width:bits ~f:(
-      fun prev ->
+    let counter =
+      reg_fb ~enable:i.I.enable ~width:bits
+        ~f:(fun prev ->
           let next = prev +:. 1 in
-          let carry =
-            if Max.value = 1 lsl bits then
-              gnd
-            else
-              next ==:. Max.value in
+          let carry = if Max.value = 1 lsl bits then gnd else next ==:. Max.value in
           let zero = zero bits in
           let clear = carry |: i.I.clear in
-          mux2 clear zero next
-        ) spec in
-    {O.data = counter}
+          mux2 clear zero next)
+        spec
+    in
+    { O.data = counter }
 end
 
 module Control = struct
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu: 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu : 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
   end
 
   module O = CpuExecutor.State
@@ -683,7 +684,6 @@ module Control = struct
     let cycle = Cycle.create
     let
   *)
-
 end
 
 module Isa = struct

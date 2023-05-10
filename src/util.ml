@@ -102,9 +102,9 @@ module type Integer = sig
   val value : int
 end
 
-let integer v : (module Integer)=
+let integer v : (module Integer) =
   (module struct
-     let value = v
+    let value = v
   end)
 
 module Counter (Bits : Integer) = struct
@@ -162,9 +162,7 @@ let counter_with_carry_test_1 =
 
 let counter_with_carry_test_2 =
   let scope = Scope.create ~flatten_design:true () in
-  let module CounterBits = struct
-    let value = 4
-  end in
+  let (module CounterBits) = integer 4 in
   let module Counter = Counter (CounterBits) in
   let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
   let circuit input =
@@ -352,10 +350,10 @@ module Pwm (W : Integer) = struct
     let name = Printf.sprintf "pwm_%u" base in
     H.hierarchical ~scope ~name create input
 
-  let counterBits = integer bits
-  module CounterBits = (val counterBits: Integer)
-
   module Counter = struct
+    let counterBits = integer bits
+
+    module CounterBits = (val counterBits : Integer)
     include Counter (CounterBits)
   end
 
