@@ -8,7 +8,8 @@ let level_control_float ~max ~levels ~level =
 
 let level_control_test control =
   let test max levels level =
-    control ~max ~levels ~level |> Printf.printf "max:%u levels:%u level:%u value:%u\n%!" max levels level
+    control ~max ~levels ~level
+    |> Printf.printf "max:%u levels:%u level:%u value:%u\n%!" max levels level
   in
   let levels = [ 15; 14; 11; 8; 4; 1; 0 ] in
   List.iter (test 255 16) levels;
@@ -58,8 +59,8 @@ let level_control_bit_test =
     let level_bits = bits_of_constant level in
     let level = Bits.of_int ~width:level_bits level in
     let value = level_control_bit ~max ~levels ~level ~scale in
-    Printf.printf "scale:%u max:%u levels:%u level:%u value:%u:%u\n%!" scale max levels (Bits.to_int level)
-      (Bits.to_int value) (Bits.width value)
+    Printf.printf "scale:%u max:%u levels:%u level:%u value:%u:%u\n%!" scale max levels
+      (Bits.to_int level) (Bits.to_int value) (Bits.width value)
   in
   List.iter
     (fun scale ->
@@ -97,9 +98,11 @@ let level_control_test =
         Cyclesim.cycle sim)
       [ 15; 14; 11; 9; 8; 7; 4; 1; 0 ];
     let display_rules =
-      Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _level; _value ] ~wave_format:Unsigned_int; default ]
+      Hardcaml_waveterm.Display_rule.
+        [ port_name_is_one_of [ _level; _value ] ~wave_format:Unsigned_int; default ]
     in
-    Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:2 waves
+    Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80
+      ~wave_width:2 waves
   in
   List.iter
     (fun scale ->
@@ -116,7 +119,8 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
   module Pwm = Util.Pwm (PwmBase)
 
   module I = struct
-    type 'a t = { count : 'a; [@bits Pwm.bits] level : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a; [@bits Pwm.bits] level : 'a [@bits bits] }
+    [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -144,7 +148,8 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
 
   module WithCounter = struct
     module I = struct
-      type 'a t = { counter : 'a Counter.I.t; level : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
+      type 'a t = { counter : 'a Counter.I.t; level : 'a [@bits bits] }
+      [@@deriving sexp_of, hardcaml]
     end
 
     let create ~max scope (input : Signal.t I.t) =
@@ -203,7 +208,8 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
   end
 
   module I = struct
-    type 'a t = { count : 'a; [@bits PwmControl.Pwm.bits] level : 'a Level.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { count : 'a; [@bits PwmControl.Pwm.bits] level : 'a Level.t }
+    [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -223,7 +229,10 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
 
   let hierarchical ~color scope input =
     let module H = Hierarchy.In_scope (I) (O) in
-    let name = Printf.sprintf "led_%u_%u_%u_%u_%u" Levels.value PwmBase.value color.Color.blue color.green color.red in
+    let name =
+      Printf.sprintf "led_%u_%u_%u_%u_%u" Levels.value PwmBase.value color.Color.blue color.green
+        color.red
+    in
     H.hierarchical ~scope ~name (create ~color) input
 
   module Counter = PwmControl.Counter
@@ -251,7 +260,9 @@ let led_control_test =
   let module Simulator = Cyclesim.With_interface (Led.WithCounter.I) (Led.O) in
   let base = 8 in
   let color = { Color.red = 2; Color.blue = 4; Color.green = 7 } in
-  let waves, sim = Led.WithCounter.create ~color scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let waves, sim =
+    Led.WithCounter.create ~color scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
+  in
   let cycles n =
     for _ = 1 to n do
       Cyclesim.cycle sim
@@ -273,7 +284,8 @@ let led_control_test =
 
 module LedStatic = struct
   module I = struct
-    type 'a t = { clock : 'a; reset : 'a; [@rtlsuffix "_"] enable : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; reset : 'a; [@rtlsuffix "_"] enable : 'a }
+    [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -283,7 +295,8 @@ module LedStatic = struct
   let create ~blue ~green ~red scope (input : Signal.t I.t) =
     let base = blue + green + red in
     let counter, _ =
-      Util.counter_with_carry ~base ~clock:input.I.clock ~reset:input.I.reset ~increment:input.I.enable ()
+      Util.counter_with_carry ~base ~clock:input.I.clock ~reset:input.I.reset
+        ~increment:input.I.enable ()
     in
     let open Signal in
     let ( -- ) = Scope.naming scope in
@@ -327,7 +340,8 @@ module LedTop = struct
   let create ~clock_freq ~refresh ~tick scope input =
     let reset = input.I.reset in
     let _10kHz =
-      Util.Trigger.hierarchical ~clock_freq ~target:refresh scope { reset = input.reset; clock = input.clock }
+      Util.Trigger.hierarchical ~clock_freq ~target:refresh scope
+        { reset = input.reset; clock = input.clock }
     in
     let _1Hz =
       let divider = refresh / tick in
@@ -345,10 +359,15 @@ module LedTop = struct
     let teal = { Color.red = 0; green = 128; blue = 128 } in
     let tomato = { Color.red = 255; green = 8; blue = 8 (* 71 *) } in
     let purple = { Color.red = 255; green = 0 (* 105 *); blue = 255 } in
-    let counter = Led.Counter.hierarchical scope { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse } in
+    let counter =
+      Led.Counter.hierarchical scope
+        { Led.Counter.I.clock = input.clock; reset; enable = _10kHz.pulse }
+    in
     let const =
       let _ = Signal.width level.count |> Signal.ones in
-      let const = if false then Signal.of_int ~width:(Signal.width level.count) 4 else level.count in
+      let const =
+        if false then Signal.of_int ~width:(Signal.width level.count) 4 else level.count
+      in
       { Led.Level.l_blue = const; l_green = const; l_red = const }
     in
     let level = { Led.Level.l_blue = level.count; l_green = level.count; l_red = level.count } in

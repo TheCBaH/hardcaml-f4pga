@@ -19,7 +19,9 @@ let display scope ~clock ~digits ~next ~reset =
   let data = mux digit (List.map (fun d -> d.data) digits) in
   let segment = Util.SegmentEncoder.create scope { digit = data } in
   let dot = mux digit (List.map (fun d -> ~:(d.dot)) digits) in
-  let digit_next = mux2 next (mux2 (digit ==:. digits_count - 1) (width digit |> zero) (digit +:. 1)) digit in
+  let digit_next =
+    mux2 next (mux2 (digit ==:. digits_count - 1) (width digit |> zero) (digit +:. 1)) digit
+  in
   digit <== reg spec digit_next;
   (anode, segment.segment, dot)
 
@@ -62,9 +64,11 @@ let display_test =
   Cyclesim.in_port sim _digit_1 := Bits.of_int ~width:4 7;
   cycles 2;
   let display_rules =
-    Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _segment; _anode ] ~wave_format:Bit; default ]
+    Hardcaml_waveterm.Display_rule.
+      [ port_name_is_one_of [ _segment; _anode ] ~wave_format:Bit; default ]
   in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:20 ~display_width:47 ~wave_width:3 waves
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:20 ~display_width:47 ~wave_width:3
+    waves
 
 let multi_counter ?base ?bits ~digits ~reset ~increment ~clock () =
   let rec make counters increment left =
@@ -82,7 +86,8 @@ let multi_counter_test =
   let clock = Signal.input _clock 1 in
   let digits = multi_counter ~base:4 ~increment:Signal.vdd ~clock ~reset ~digits:2 () in
   let circuit =
-    List.mapi (fun n -> Printf.sprintf "digit_%u" n |> Signal.output) digits |> Circuit.create_exn ~name:"multi_counter"
+    List.mapi (fun n -> Printf.sprintf "digit_%u" n |> Signal.output) digits
+    |> Circuit.create_exn ~name:"multi_counter"
   in
   let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
   let cycles n =
@@ -109,7 +114,9 @@ let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
         { data = d; enable = vdd; dot })
       digits
   in
-  let refresh = Util.Trigger.create ~clock_freq ~target:refresh ~exact:false scope { reset; clock } in
+  let refresh =
+    Util.Trigger.create ~clock_freq ~target:refresh ~exact:false scope { reset; clock }
+  in
   let anode, segment, dot = display scope ~clock ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 
@@ -135,9 +142,11 @@ let clock_top_test =
   in
   cycles 16;
   let display_rules =
-    Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _segment; _anode ] ~wave_format:Bit; default ]
+    Hardcaml_waveterm.Display_rule.
+      [ port_name_is_one_of [ _segment; _anode ] ~wave_format:Bit; default ]
   in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:14 ~display_width:80 ~wave_width:1 waves
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:14 ~display_width:80 ~wave_width:1
+    waves
 
 module Reset = struct
   module I = struct
@@ -149,7 +158,10 @@ module Reset = struct
   end
 
   let create (scope : Scope.t) (input : Signal.t I.t) =
-    let pulse = Util.Pulse.hierarchical scope ~length:32 { Util.Pulse.I.clock = input.clock; reset = input.activate } in
+    let pulse =
+      Util.Pulse.hierarchical scope ~length:32
+        { Util.Pulse.I.clock = input.clock; reset = input.activate }
+    in
     { O.reset = pulse.Util.Pulse.O.pulse }
 
   let hierarchical scope input =
@@ -163,12 +175,15 @@ module Clock = struct
   end
 
   module O = struct
-    type 'a t = { anode : 'a; [@bits 4] segment : 'a; [@bits 8] dot : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { anode : 'a; [@bits 4] segment : 'a; [@bits 8] dot : 'a }
+    [@@deriving sexp_of, hardcaml]
   end
 
   let create (_scope : Scope.t) (input : Signal.t I.t) =
     let clock_freq = 100_000_000 in
-    let anode, segment, dot = clock_top ~clock_freq ~clock:input.clock ~reset:input.reset ~refresh:1000 ~tick:100 in
+    let anode, segment, dot =
+      clock_top ~clock_freq ~clock:input.clock ~reset:input.reset ~refresh:1000 ~tick:100
+    in
     { O.anode; segment; dot }
 end
 
