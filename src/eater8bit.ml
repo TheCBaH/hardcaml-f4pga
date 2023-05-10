@@ -669,22 +669,6 @@ module Counter (Max : Util.Integer) = struct
     { O.data = counter }
 end
 
-module Control = struct
-  module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu : 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
-  end
-
-  module O = CpuExecutor.State
-
-  (*
-  let create scope i =
-    let max_cycles = 5 in
-    let MaxCycles = Utils.Int
-    let Cycle = Cycle()
-    let cycle = Cycle.create
-    let
-  *)
-end
 
 module Isa = struct
   module Control = struct
@@ -798,3 +782,23 @@ module Isa = struct
 end
 
 let _ = Isa.(assembler [ _LDA 14; _ADD 15; _OUT; _HLT ]) |> List.iter (Printf.printf "%#x\n%!")
+
+module Control = struct
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu : 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = CpuExecutor.State
+
+  (*
+  let create scope i =
+    let max_cycles = 5 in
+    let module Counter = Counter(val Util.integer max_cycles) in
+    let open Signal in
+    let counter = Counter.create scope {Counter.I.clock=i.I.clock; reset=i.reset; enable=i.enable;clear=gnd; } in
+    let ( -- ) = Scope.naming scope in
+    let cycle = counter.data -- "cycle" in
+    let state = Signal.concat_msb [i.I.cpu.opcode;cycle] in
+  *)
+
+end
