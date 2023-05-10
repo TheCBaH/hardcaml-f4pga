@@ -540,8 +540,9 @@ module CpuControl = struct
     let instruction = Instruction.create scope { clock; reset; w_en = i.control._II; w_data } in
     let alu =
       let op = Alu.Binary.Of_signal.of_raw i.control._SU in
-      Alu.create scope { Alu.I.op; a = a.Register.O.data; b = b.Register.O.data } in
-    let flags = Flags.create scope {clock; reset; w_en = i.control._FI; w_carry=alu.carry; w_zero=alu.zero} in
+      Alu.create scope { Alu.I.op; a = a.Register.O.data; b = b.Register.O.data }
+    in
+    let flags = Flags.create scope { clock; reset; w_en = i.control._FI; w_carry = alu.carry; w_zero = alu.zero } in
     let bus = Always.Variable.wire ~default:(zero Ram.bits) in
     a.data -- "A" |> ignore;
     b.data -- "B" |> ignore;
@@ -633,4 +634,4 @@ let cpu_control_test =
   command _JMP;
   command _OUT;
   cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:61 ~display_width:90 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:63 ~display_width:90 ~wave_width:0 waves
