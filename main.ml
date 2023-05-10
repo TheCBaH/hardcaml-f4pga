@@ -12,8 +12,7 @@ let build_clock () =
     let clock_freq = 100_000_000 in
     let clock = Signal.input "clock" 1 in
     let anode, segment, dot = clock_top ~clock_freq ~clock ~reset ~refresh:1000 ~tick:100 in
-    Circuit.create_exn ~name
-      [ Signal.output "anode" anode; Signal.output "segment" segment; Signal.output "dot" dot ]
+    Circuit.create_exn ~name [ Signal.output "anode" anode; Signal.output "segment" segment; Signal.output "dot" dot ]
   in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 
@@ -30,16 +29,14 @@ let simulate_led ?cycles () =
   let simulator circuit =
     if cycles > 100_000 then
       let module Simulator = Hardcaml_verilator.With_interface (Led.LedTop.I) (Led.LedTop.O) in
-      Simulator.create ~clock_names:[ "clock" ] ~config:Cyclesim.Config.trace_all ~verbose:true
-        circuit
+      Simulator.create ~clock_names:[ "clock" ] ~config:Cyclesim.Config.trace_all ~verbose:true circuit
     else
       let module Simulator = Cyclesim.With_interface (Led.LedTop.I) (Led.LedTop.O) in
       Simulator.create ~config:Cyclesim.Config.trace_all circuit
   in
   let waves, sim =
     let clock_freq, refresh, tick = (20_000, 10_000, 40) in
-    Led.LedTop.create ~clock_freq ~refresh ~tick scope
-    |> simulator |> Hardcaml_waveterm.Waveform.create
+    Led.LedTop.create ~clock_freq ~refresh ~tick scope |> simulator |> Hardcaml_waveterm.Waveform.create
   in
   for _i = 1 to cycles do
     Cyclesim.cycle sim
@@ -53,17 +50,14 @@ let build_led () =
   let refresh = 10_000 in
   let tick = 1 in
   let module TopCircuit = Circuit.With_interface (Led.LedTop.I) (Led.LedTop.O) in
-  let circuit =
-    Led.LedTop.hierarchical ~clock_freq ~refresh ~tick scope |> TopCircuit.create_exn ~name
-  in
+  let circuit = Led.LedTop.hierarchical ~clock_freq ~refresh ~tick scope |> TopCircuit.create_exn ~name in
   let output_mode = to_directory in
   Rtl.output ~output_mode ~database:(Scope.circuit_database scope) Verilog circuit
 
 let build_eater () =
   let scope = Scope.create ~flatten_design:true () in
   let name = "eater_top" in
-  let module TopCircuit = Circuit.With_interface (Eater8bit.CpuControl.I) (Eater8bit.CpuControl.O)
-  in
+  let module TopCircuit = Circuit.With_interface (Eater8bit.CpuControl.I) (Eater8bit.CpuControl.O) in
   let rom = List.map (Signal.of_int ~width:8) [ 0x11; 0x22; 0x33 ] in
   let circuit = Eater8bit.CpuControl.create ~rom scope |> TopCircuit.create_exn ~name in
   let output_mode = to_directory in

@@ -38,13 +38,10 @@ let pulse_test =
   let config =
     {
       Cyclesim.Config.default with
-      is_internal_port =
-        Some (fun s -> Signal.names s |> List.exists (String.starts_with ~prefix:"count"));
+      is_internal_port = Some (fun s -> Signal.names s |> List.exists (String.starts_with ~prefix:"count"));
     }
   in
-  let waves, sim =
-    Pulse.create ~length:4 scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create
-  in
+  let waves, sim = Pulse.create ~length:4 scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let cycles n =
     for _ = 1 to n do
@@ -107,8 +104,7 @@ end
 
 module Counter (Bits : Integer) = struct
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] }
-    [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
   end
 
   let bits = Bits.value
@@ -118,10 +114,7 @@ module Counter (Bits : Integer) = struct
   end
 
   let create ?base (_scope : Scope.t) (input : Signal.t I.t) =
-    let count, cary =
-      counter_with_carry ~bits ~reset:input.reset ~increment:input.enable ~clock:input.clock ?base
-        ()
-    in
+    let count, cary = counter_with_carry ~bits ~reset:input.reset ~increment:input.enable ~clock:input.clock ?base () in
     { O.count; cary }
 
   let hierarchical ?base scope input =
@@ -138,9 +131,7 @@ let counter_with_carry_test_1 =
   end in
   let module Counter = Counter (CounterBits) in
   let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
-  let waves, sim =
-    Counter.create ~base:5 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
-  in
+  let waves, sim = Counter.create ~base:5 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
@@ -181,11 +172,7 @@ let counter_with_carry_test_2 =
     count0.cary -- "cary0" |> ignore;
     count1
   in
-  let waves, sim =
-    circuit
-    |> Simulator.create ~config:Cyclesim.Config.trace_all
-    |> Hardcaml_waveterm.Waveform.create
-  in
+  let waves, sim = circuit |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
   let clear wire = wire := Bits.gnd in
@@ -246,16 +233,12 @@ module Trigger = struct
   end
 
   let create ?clock_freq ?divider ?target ?exact (scope : Scope.t) (input : Signal.t I.t) =
-    {
-      O.pulse =
-        trigger_gen ?divider ?target ?exact ?clock_freq ~reset:input.reset ~clock:input.clock scope;
-    }
+    { O.pulse = trigger_gen ?divider ?target ?exact ?clock_freq ~reset:input.reset ~clock:input.clock scope }
 
   let hierarchical ~clock_freq ?divider ?target ?exact scope input =
     let module H = Hierarchy.In_scope (I) (O) in
     let name =
-      Printf.sprintf "trigger_%u_%u_%u_%B" clock_freq (Option.value ~default:0 divider)
-        (Option.value ~default:0 target)
+      Printf.sprintf "trigger_%u_%u_%u_%B" clock_freq (Option.value ~default:0 divider) (Option.value ~default:0 target)
         (Option.value ~default:false exact)
     in
     H.hierarchical ~scope ~name (create ~clock_freq ?divider ?target ?exact) input
@@ -290,8 +273,7 @@ let trigger_test =
 
 module TriggerWithEnable = struct
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] }
-    [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a [@rtlsuffix "_"] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -299,10 +281,7 @@ module TriggerWithEnable = struct
   end
 
   let create ~divider (scope : Scope.t) (input : Signal.t I.t) =
-    {
-      O.pulse =
-        trigger_gen ~divider ~enable:input.enable ~reset:input.reset ~clock:input.clock scope;
-    }
+    { O.pulse = trigger_gen ~divider ~enable:input.enable ~reset:input.reset ~clock:input.clock scope }
 
   let hierarchical ~divider scope input =
     let module H = Hierarchy.In_scope (I) (O) in
@@ -380,8 +359,7 @@ module Pwm (W : Integer) = struct
 
   module WithCounter = struct
     module I = struct
-      type 'a t = { counter : 'a Counter.I.t; value : 'a [@bits bits] }
-      [@@deriving sexp_of, hardcaml]
+      type 'a t = { counter : 'a Counter.I.t; value : 'a [@bits bits] } [@@deriving sexp_of, hardcaml]
     end
 
     let create scope (input : Signal.t I.t) =
@@ -402,9 +380,7 @@ let pwm_test_1 =
   let module Pwm = Pwm (Int4) in
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
-  let waves, sim =
-    Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
-  in
+  let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 1 to n do
       Cyclesim.cycle sim
@@ -440,9 +416,7 @@ let pwm_test_2 =
   end in
   let module Pwm = Pwm (Int4) in
   let module Simulator = Cyclesim.With_interface (Pwm.WithCounter.I) (Pwm.O) in
-  let waves, sim =
-    Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
-  in
+  let waves, sim = Pwm.WithCounter.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let cycles n =
     for _ = 1 to n do
       Cyclesim.cycle sim
@@ -507,9 +481,7 @@ end
 let segment_encode_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (SegmentEncoder.I) (SegmentEncoder.O) in
-  let waves, sim =
-    SegmentEncoder.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create
-  in
+  let waves, sim = SegmentEncoder.create scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
   let set wire v =
     let width = Bits.width !wire in
     wire := Bits.of_int ~width v
@@ -524,8 +496,5 @@ let segment_encode_test =
   set 8;
   set 0xb;
   set 0xF;
-  let display_rules =
-    Hardcaml_waveterm.Display_rule.[ port_name_is "segment" ~wave_format:Bit; default ]
-  in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:4
-    waves
+  let display_rules = Hardcaml_waveterm.Display_rule.[ port_name_is "segment" ~wave_format:Bit; default ] in
+  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:4 waves
