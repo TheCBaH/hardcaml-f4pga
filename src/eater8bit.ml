@@ -682,14 +682,8 @@ module Isa = struct
     in
     { code; ucode = nop @ ucode }
 
-  type args =
-    Zero
-    | One of int
-
-  type inst = {
-    code: int;
-    args: args;
-  }
+  type args = Zero | One of int
+  type inst = { code : int; args : args }
 
   let register code ucode =
     let cmd = make code ucode in
@@ -698,15 +692,16 @@ module Isa = struct
 
   let no_op code ucode =
     register code ucode;
-    {code; args=Zero}
+    { code; args = Zero }
 
   let single_op code ucode arg =
     register code ucode;
-    {code; args=One arg}
+    { code; args = One arg }
 
   let _NOP = no_op 0b0000 []
 
-  let _LDA = single_op 0b0001
+  let _LDA =
+    single_op 0b0001
       Control.
         [
           [ IO; MI ] (*                                  cycle 3 *);
@@ -728,7 +723,7 @@ module Isa = struct
         [
           [ IO; MI ] (*                                  cycle 3 *);
           [ RO; BI ] (*                                  cycle 4 *);
-          [ EO; AI; SU; FI ] (*                              cycle 5 *);
+          [ EO; AI; SU; FI ] (*                          cycle 5 *);
         ]
 
   let _STA =
@@ -744,12 +739,12 @@ module Isa = struct
   let _OUT = no_op 0b1110 Control.[ [ AO; OI ] ]
   let _HLT = no_op 0b1111 Control.[ [ HLT ] ]
 
-  let assembler l = List.map (fun i ->
-    let d = match i.args with
-    Zero -> 0
-    | One n -> n in
-    (i.code lsl 4) lor d
-    ) l
+  let assembler l =
+    List.map
+      (fun i ->
+        let d = match i.args with Zero -> 0 | One n -> n in
+        (i.code lsl 4) lor d)
+      l
 end
 
 let _ = Isa.(assembler [ _LDA 14; _ADD 15; _OUT; _HLT ]) |> List.iter (Printf.printf "%#x\n%!")
