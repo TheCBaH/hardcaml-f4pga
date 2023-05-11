@@ -567,7 +567,7 @@ module CpuExecutor = struct
     { O.segment = output; state }
 end
 
-let cpu_control_test =
+let cpu_executor_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (CpuExecutor.I) (CpuExecutor.O) in
   let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x01; 0x12; 0x23; 0x34; 0x45; 0x56; 0x76 ] in
@@ -723,6 +723,10 @@ module Isa = struct
   module Instruction = struct
     type args = Zero | One of int
     type inst = { code : int; args : args }
+
+    let arg_bits = Ram.bits_addr
+    let code_bits = Ram.bits - Ram.bits_addr
+    let make ~code ~arg = (code lsl arg_bits) lor arg
   end
 
   let register name code ucode =
@@ -783,14 +787,14 @@ module Isa = struct
     List.map
       (fun i ->
         let d = match i.Instruction.args with Zero -> 0 | One n -> n in
-        (i.code lsl 4) lor d)
+        Instruction.make ~code:i.code ~arg:d)
       l
 
-  let bits, ucode_bits, ucode =
+  let bits, ucode_bits, max_cycles, ucode =
     let bits = List.length Control.all in
     let all = List.map (fun c -> (c.code, Ucode.code c.ucode)) !commands in
-    let max_ucode = List.map (fun (_, ucode) -> List.length ucode) all |> Base.List.max_elt ~compare |> Option.get in
-    let ucode_bits = max_ucode - 1 |> Bits.num_bits_to_represent in
+    let max_cycles = List.map (fun (_, ucode) -> List.length ucode) all |> Base.List.max_elt ~compare |> Option.get in
+    let ucode_bits = max_cycles - 1 |> Bits.num_bits_to_represent in
     let max_ucode = 1 lsl ucode_bits in
     let ops_bits = 4 in
     let ops = 1 lsl ops_bits in
@@ -802,12 +806,12 @@ module Isa = struct
           ucode @ tail)
       |> List.flatten
     in
-    (bits, ucode_bits, ucode)
+    (bits, ucode_bits, max_cycles, ucode)
 end
 
 let _ = Isa.(assembler [ lda 14; add 15; out; hlt ]) |> List.iter (Printf.printf "%#x\n%!")
 
-module Control = struct
+module CpuControl = struct
   module I = struct
     type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu : 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
   end
@@ -815,8 +819,7 @@ module Control = struct
   module O = CpuExecutor.Control
 
   let create scope i =
-    let max_cycles = 5 in
-    let module Counter = Counter ((val Util.integer max_cycles)) in
+    let module Counter = Counter ((val Util.integer Isa.max_cycles)) in
     let open Signal in
     let counter =
       Counter.create scope { Counter.I.clock = i.I.clock; reset = i.reset; enable = i.enable; clear = gnd }
@@ -847,3 +850,35 @@ module Control = struct
         _FI = control FI;
       }
 end
+
+let cpu_control_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (CpuControl.I) (CpuControl.O) in
+  let waves, sim =
+    CpuControl.create scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create
+  in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  let opcode code = inputs.cpu.opcode := Bits.of_int ~width:Isa.Instruction.code_bits code.Isa.Instruction.code in
+  let exec code =
+    opcode code;
+    cycles Isa.max_cycles
+  in
+  set inputs.enable;
+  Isa.nop |> exec;
+  Isa.lda 14 |> exec;
+  Isa.add 15 |> exec;
+  Isa.out |> exec;
+  Isa.hlt |> exec;
+  clear inputs.enable;
+  Isa.nop |> exec;
+  cycles 2;
+  set inputs.enable;
+  cycles Isa.max_cycles;
+  Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:48 ~display_width:80 ~wave_width:0 waves
