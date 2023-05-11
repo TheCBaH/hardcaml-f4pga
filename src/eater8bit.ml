@@ -669,7 +669,6 @@ module Counter (Max : Util.Integer) = struct
     { O.data = counter }
 end
 
-
 module Isa = struct
   module Control = struct
     type t =
@@ -700,11 +699,14 @@ module Isa = struct
   module Ucode = struct
     type cycle = Control.t list
     type t = cycle list
-    let code_of_cycle cycle = List.map Control.to_int cycle |> List.map (fun n -> 1 lsl n) |> List.fold_left (fun b n -> b lor n ) 0
+
+    let code_of_cycle cycle =
+      List.map Control.to_int cycle |> List.map (fun n -> 1 lsl n) |> List.fold_left (fun b n -> b lor n) 0
+
     let code t = List.map code_of_cycle t
   end
 
-  type t = { code : int; name: string;ucode : Ucode.t }
+  type t = { code : int; name : string; ucode : Ucode.t }
 
   let commands = ref []
 
@@ -734,8 +736,7 @@ module Isa = struct
 
   let single_op name code ucode =
     register name code ucode;
-    (fun arg ->
-    Instruction.{ code; args = One arg })
+    fun arg -> Instruction.{ code; args = One arg }
 
   let nop = no_op "NOP" 0b0000 []
 
@@ -773,7 +774,7 @@ module Isa = struct
           [ AO; RI ] (*                                  cycle 4 *);
         ]
 
-  let ldi= single_op "LDI" 0b0101 Control.[ [ IO; AI ] ]
+  let ldi = single_op "LDI" 0b0101 Control.[ [ IO; AI ] ]
   let jmp = single_op "JMP" 0b0110 Control.[ [ IO; J ] ]
   let out = no_op "OUT" 0b1110 Control.[ [ AO; OI ] ]
   let hlt = no_op "HLT" 0b1111 Control.[ [ HLT ] ]
@@ -784,26 +785,27 @@ module Isa = struct
         let d = match i.Instruction.args with Zero -> 0 | One n -> n in
         (i.code lsl 4) lor d)
       l
-  let (bits,ucode_bits,ucode) =
+
+  let bits, ucode_bits, ucode =
     let bits = List.length Control.all in
-    let all = List.map (fun c -> c.code, (Ucode.code c.ucode)) !commands in
-    let max_ucode = List.map (fun (_,ucode) -> List.length ucode) all |>
-    Base.List.max_elt ~compare |> Option.get in
+    let all = List.map (fun c -> (c.code, Ucode.code c.ucode)) !commands in
+    let max_ucode = List.map (fun (_, ucode) -> List.length ucode) all |> Base.List.max_elt ~compare |> Option.get in
     let ucode_bits = max_ucode - 1 |> Bits.num_bits_to_represent in
     let max_ucode = 1 lsl ucode_bits in
     let ops_bits = 4 in
     let ops = 1 lsl ops_bits in
-    let ucode = List.init ops (fun op ->
-      let ucode = List.assoc_opt op all |> Option.value ~default:[] in
-      let len = List.length ucode in
-      let tail = List.init (max_ucode - len) (fun _ -> 0) in
-      ucode @ tail
-      ) |> List.flatten in
-      bits, ucode_bits, ucode
-
+    let ucode =
+      List.init ops (fun op ->
+          let ucode = List.assoc_opt op all |> Option.value ~default:[] in
+          let len = List.length ucode in
+          let tail = List.init (max_ucode - len) (fun _ -> 0) in
+          ucode @ tail)
+      |> List.flatten
+    in
+    (bits, ucode_bits, ucode)
 end
 
-let _ = Isa.(assembler [ lda 14; add 15; out; hlt]) |> List.iter (Printf.printf "%#x\n%!")
+let _ = Isa.(assembler [ lda 14; add 15; out; hlt ]) |> List.iter (Printf.printf "%#x\n%!")
 
 module Control = struct
   module I = struct
@@ -814,33 +816,34 @@ module Control = struct
 
   let create scope i =
     let max_cycles = 5 in
-    let module Counter = Counter(val Util.integer max_cycles) in
+    let module Counter = Counter ((val Util.integer max_cycles)) in
     let open Signal in
-    let counter = Counter.create scope {Counter.I.clock=i.I.clock; reset=i.reset; enable=i.enable;clear=gnd; } in
+    let counter =
+      Counter.create scope { Counter.I.clock = i.I.clock; reset = i.reset; enable = i.enable; clear = gnd }
+    in
     let ( -- ) = Scope.naming scope in
     let cycle = counter.data -- "cycle" in
-    let state = concat_msb [i.I.cpu.opcode;cycle] in
+    let state = concat_msb [ i.I.cpu.opcode; cycle ] in
     let ucode = List.map (Signal.of_int ~width:Isa.bits) Isa.ucode |> mux state in
     let control c = Isa.Control.to_int c |> bit ucode in
-    Isa.Control.{
-      O._HLT = control HLT;
-      _MI = control MI;
-      _RI = control RI;
-      _RO = control RO;
-      _IO = control IO;
-      _II = control II;
-      _AI = control AI;
-      _AO = control AO;
-      _EO = control EO;
-      _SU = control SU;
-      _BI  = control BI;
-      _BO = control BI;
-      _OI = control OI;
-      _CE = control CE;
-      _CO = control CO;
-      _J = control J;
-      _FI = control FI;
-   }
-
-
+    Isa.Control.
+      {
+        O._HLT = control HLT;
+        _MI = control MI;
+        _RI = control RI;
+        _RO = control RO;
+        _IO = control IO;
+        _II = control II;
+        _AI = control AI;
+        _AO = control AO;
+        _EO = control EO;
+        _SU = control SU;
+        _BI = control BI;
+        _BO = control BI;
+        _OI = control OI;
+        _CE = control CE;
+        _CO = control CO;
+        _J = control J;
+        _FI = control FI;
+      }
 end
