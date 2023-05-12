@@ -809,8 +809,6 @@ module Isa = struct
     (bits, ucode_bits, max_cycles, ucode)
 end
 
-let _ = Isa.(assembler [ lda 14; add 15; out; hlt ]) |> List.iter (Printf.printf "%#x\n%!")
-
 module CpuControl = struct
   module I = struct
     type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu : 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
@@ -882,3 +880,53 @@ let cpu_control_test =
   set inputs.enable;
   cycles Isa.max_cycles;
   Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:48 ~display_width:80 ~wave_width:0 waves
+
+module Cpu = struct
+
+  module I = struct
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; } [@@deriving sexp_of, hardcaml]
+  end
+
+  module O = struct
+    type 'a t = { segment : 'a Output.O.t} [@@deriving sexp_of, hardcaml]
+  end
+
+  let create ~rom scope i =
+    let open Signal in
+    let state = {CpuExecutor.State.opcode = wire Isa.Instruction.code_bits ; flags = {Flags.O.zero = wire 1; carry = wire 1}} in
+    let clock = i.I.clock in
+    let control = CpuControl.(create scope {I.clock=clock;enable=i.enable;reset=i.reset;cpu=state}) in
+    let executor = CpuExecutor.(create ~rom scope {I.clock=clock;enable=i.enable;reset=i.reset;control}) in
+    state.opcode <== executor.CpuExecutor.O.state.opcode;
+    state.flags.zero <== executor.CpuExecutor.O.state.flags.zero;
+    state.flags.carry <== executor.CpuExecutor.O.state.flags.carry;
+    {O.segment=executor.segment}
+end
+
+let cpu_test =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O) in
+  let rom =
+    Isa.(assembler [ lda 14; add 15; out; hlt ]) |>
+    List.map (Signal.of_int ~width:Ram.bits) in
+  let waves, sim =
+    Cpu.create ~rom scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
+  in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  set inputs.enable;
+  cycles Isa.max_cycles;
+  cycles Isa.max_cycles;
+  cycles Isa.max_cycles;
+  cycles Isa.max_cycles;
+  cycles Isa.max_cycles;
+  cycles Isa.max_cycles;
+  cycles Isa.max_cycles;
+  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:32 ~display_width:120 ~wave_width:1 waves
