@@ -522,11 +522,11 @@ module CpuExecutor = struct
   end
 
   module State = struct
-    type 'a t = { opcode : 'a; [@bits 4] flags : 'a Flags.O.t [@rtlmangle true];} [@@deriving sexp_of, hardcaml]
+    type 'a t = { opcode : 'a; [@bits 4] flags : 'a Flags.O.t [@rtlmangle true] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { output: 'a Output.O.t [@rtlmangle true]; state : 'a State.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] state : 'a State.t } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom scope i =
@@ -575,7 +575,7 @@ module CpuExecutor = struct
         ]);
     w_data <== bus.value;
     let state = { State.opcode = instruction.code; flags } in
-    { O.output = output; state }
+    { O.output; state }
 end
 
 let cpu_executor_test =
@@ -840,7 +840,7 @@ module CpuControl = struct
     let ( -- ) = Scope.naming scope in
     let halt_next = wire 1 in
     let halt = reg spec halt_next -- "halt" in
-    let counter_enable = (~: halt) &: i.enable |: i.cpu_reset in
+    let counter_enable = ~:halt &: i.enable |: i.cpu_reset in
     let counter =
       Counter.create scope
         { Counter.I.clock = i.I.clock; reset = i.reset; enable = counter_enable; clear = i.cpu_reset }
@@ -851,8 +851,8 @@ module CpuControl = struct
     let ucode = List.map (Signal.of_int ~width:Isa.bits) Isa.ucode |> mux state in
     let control c = Isa.Control.to_int c |> bit ucode in
     let halt = halt |: control HLT in
-    let halt = halt &: ~: (i.I.cpu_reset) in
-    halt_next <== halt ;
+    let halt = halt &: ~:(i.I.cpu_reset) in
+    halt_next <== halt;
     Isa.Control.
       {
         O._HLT = halt_next;
@@ -919,7 +919,7 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { output: 'a Output.O.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output : 'a Output.O.t } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom scope i =
