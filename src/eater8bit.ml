@@ -394,6 +394,7 @@ let pc_test =
   cycles 8;
   Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:60 ~wave_width:0 waves
 
+(*
 module Output = struct
   module I = Register.I
 
@@ -445,6 +446,9 @@ let output_test =
       [ Re.Posix.re "(segment)" |> Re.Posix.compile |> port_name_matches ~wave_format:Bit; default ]
   in
   Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:18 ~display_width:80 ~wave_width:3 waves
+*)
+
+module Output = Register
 
 module Instruction = struct
   module I = Register.I
@@ -518,11 +522,11 @@ module CpuExecutor = struct
   end
 
   module State = struct
-    type 'a t = { opcode : 'a; [@bits 4] flags : 'a Flags.O.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { opcode : 'a; [@bits 4] flags : 'a Flags.O.t [@rtlmangle true];} [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
-    type 'a t = { segment : 'a Output.O.t; state : 'a State.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output: 'a Output.O.t [@rtlmangle true]; state : 'a State.t } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom scope i =
@@ -571,7 +575,7 @@ module CpuExecutor = struct
         ]);
     w_data <== bus.value;
     let state = { State.opcode = instruction.code; flags } in
-    { O.segment = output; state }
+    { O.output = output; state }
 end
 
 let cpu_executor_test =
@@ -645,8 +649,13 @@ let cpu_executor_test =
   command _LDI;
   command _JMP;
   command _OUT;
+  cycles 2;
+  set inputs.cpu_reset;
   cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:65 ~display_width:90 ~wave_width:0 waves
+  clear inputs.cpu_reset;
+  command _NOP;
+  command _LDA;
+  Hardcaml_waveterm.Waveform.print ~display_height:62 ~display_width:100 ~wave_width:0 waves
 
 module Counter (Max : Util.Integer) = struct
   let bits = Max.value - 1 |> Bits.num_bits_to_represent
@@ -829,9 +838,9 @@ module CpuControl = struct
     let open Signal in
     let spec = Reg_spec.create ~clock:i.I.clock ~clear:i.I.reset () in
     let ( -- ) = Scope.naming scope in
-    let halt_next = wire 1 -- "halt" in
+    let halt_next = wire 1 in
     let halt = reg spec halt_next -- "halt" in
-    let counter_enable = halt &: i.enable |: i.cpu_reset in
+    let counter_enable = (~: halt) &: i.enable |: i.cpu_reset in
     let counter =
       Counter.create scope
         { Counter.I.clock = i.I.clock; reset = i.reset; enable = counter_enable; clear = i.cpu_reset }
@@ -841,7 +850,9 @@ module CpuControl = struct
     let state = concat_msb [ i.I.cpu.opcode; cycle ] in
     let ucode = List.map (Signal.of_int ~width:Isa.bits) Isa.ucode |> mux state in
     let control c = Isa.Control.to_int c |> bit ucode in
-    halt_next <== control HLT;
+    let halt = halt |: control HLT in
+    let halt = halt &: ~: (i.I.cpu_reset) in
+    halt_next <== halt ;
     Isa.Control.
       {
         O._HLT = halt_next;
@@ -889,12 +900,18 @@ let cpu_control_test =
   Isa.add 15 |> exec;
   Isa.out |> exec;
   Isa.hlt |> exec;
-  clear inputs.enable;
+  cycles 2;
+  set inputs.cpu_reset;
+  cycles 2;
+  clear inputs.cpu_reset;
   Isa.nop |> exec;
+  clear inputs.enable;
   cycles 2;
   set inputs.enable;
   cycles Isa.max_cycles;
-  Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:48 ~display_width:80 ~wave_width:0 waves
+  Isa.nop |> exec;
+  cycles 2;
+  Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:52 ~display_width:100 ~wave_width:0 waves
 
 module Cpu = struct
   module I = struct
@@ -902,7 +919,7 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { segment : 'a Output.O.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output: 'a Output.O.t } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom scope i =
@@ -920,7 +937,7 @@ module Cpu = struct
     state.opcode <== executor.CpuExecutor.O.state.opcode;
     state.flags.zero <== executor.CpuExecutor.O.state.flags.zero;
     state.flags.carry <== executor.CpuExecutor.O.state.flags.carry;
-    { O.segment = executor.segment }
+    { O.output = executor.output }
 end
 
 let cpu_test =
@@ -932,6 +949,7 @@ let cpu_test =
   in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.vdd in
   let cycles n =
     for _ = 1 to n do
       Cyclesim.cycle sim
@@ -942,7 +960,10 @@ let cpu_test =
   cycles Isa.max_cycles;
   cycles Isa.max_cycles;
   cycles Isa.max_cycles;
+  cycles 3;
+  set inputs.cpu_reset;
+  cycles 1;
+  clear inputs.cpu_reset;
   cycles Isa.max_cycles;
   cycles Isa.max_cycles;
-  cycles Isa.max_cycles;
-  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:32 ~display_width:120 ~wave_width:1 waves
+  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:31 ~display_width:120 ~wave_width:1 waves
