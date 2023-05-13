@@ -646,7 +646,7 @@ let cpu_executor_test =
   command _JMP;
   command _OUT;
   cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:63 ~display_width:90 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:65 ~display_width:90 ~wave_width:0 waves
 
 module Counter (Max : Util.Integer) = struct
   let bits = Max.value - 1 |> Bits.num_bits_to_represent
