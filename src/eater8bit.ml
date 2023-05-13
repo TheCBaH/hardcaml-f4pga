@@ -513,7 +513,8 @@ module CpuExecutor = struct
   end
 
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu_reset : 'a; control : 'a Control.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu_reset : 'a; control : 'a Control.t }
+    [@@deriving sexp_of, hardcaml]
   end
 
   module State = struct
@@ -539,7 +540,13 @@ module CpuExecutor = struct
     let b = Register.create scope { Register.I.clock; reset; w_en = i.control._BI; w_data } in
     let pc =
       Pc.create scope
-        { Pc.I.clock; reset = i.reset |: i.cpu_reset ; enable = i.control._CE; w_en = i.control._J; w_data = uresize w_data Ram.bits_addr }
+        {
+          Pc.I.clock;
+          reset = i.reset |: i.cpu_reset;
+          enable = i.control._CE;
+          w_en = i.control._J;
+          w_data = uresize w_data Ram.bits_addr;
+        }
     in
     let instruction = Instruction.create scope { clock; reset; w_en = i.control._II; w_data } in
     let alu =
@@ -645,7 +652,7 @@ module Counter (Max : Util.Integer) = struct
   let bits = Max.value - 1 |> Bits.num_bits_to_represent
 
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; clear : 'a; reset : 'a} [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; clear : 'a; reset : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -811,7 +818,8 @@ end
 
 module CpuControl = struct
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu_reset : 'a; cpu : 'a CpuExecutor.State.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; reset : 'a; cpu_reset : 'a; cpu : 'a CpuExecutor.State.t }
+    [@@deriving sexp_of, hardcaml]
   end
 
   module O = CpuExecutor.Control
@@ -823,9 +831,10 @@ module CpuControl = struct
     let ( -- ) = Scope.naming scope in
     let halt_next = wire 1 -- "halt" in
     let halt = reg spec halt_next -- "halt" in
-    let counter_enable = (halt &: i.enable) |: i.cpu_reset in
+    let counter_enable = halt &: i.enable |: i.cpu_reset in
     let counter =
-      Counter.create scope { Counter.I.clock = i.I.clock; reset = i.reset; enable = counter_enable; clear = i.cpu_reset }
+      Counter.create scope
+        { Counter.I.clock = i.I.clock; reset = i.reset; enable = counter_enable; clear = i.cpu_reset }
     in
     let ( -- ) = Scope.naming scope in
     let cycle = counter.data -- "cycle" in
@@ -889,7 +898,7 @@ let cpu_control_test =
 
 module Cpu = struct
   module I = struct
-    type 'a t = { clock : 'a; enable : 'a; cpu_reset: 'a; reset : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { clock : 'a; enable : 'a; cpu_reset : 'a; reset : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
@@ -902,8 +911,12 @@ module Cpu = struct
       { CpuExecutor.State.opcode = wire Isa.Instruction.code_bits; flags = { Flags.O.zero = wire 1; carry = wire 1 } }
     in
     let clock = i.I.clock in
-    let control = CpuControl.(create scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; cpu = state }) in
-    let executor = CpuExecutor.(create ~rom scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; control }) in
+    let control =
+      CpuControl.(create scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; cpu = state })
+    in
+    let executor =
+      CpuExecutor.(create ~rom scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; control })
+    in
     state.opcode <== executor.CpuExecutor.O.state.opcode;
     state.flags.zero <== executor.CpuExecutor.O.state.flags.zero;
     state.flags.carry <== executor.CpuExecutor.O.state.flags.carry;
