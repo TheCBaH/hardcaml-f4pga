@@ -191,7 +191,7 @@ module InitializedMemory = struct
     type 'a t = { bus : 'a Ram.O.t; ready : 'a } [@@deriving sexp_of, hardcaml]
   end
 
-  let create rom scope i =
+  let create ~rom scope i =
     let rom_len = List.length rom in
     assert (rom_len > 0);
     assert (rom_len <= Ram.size);
@@ -224,7 +224,7 @@ let initialized_memory_test =
   let module Simulator = Cyclesim.With_interface (InitializedMemory.I) (InitializedMemory.O) in
   let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33 ] in
   let waves, sim =
-    InitializedMemory.create rom scope
+    InitializedMemory.create ~rom scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
     |> Hardcaml_waveterm.Waveform.create
   in
@@ -522,22 +522,28 @@ module CpuExecutor = struct
   end
 
   module State = struct
-    type 'a t = { opcode : 'a; [@bits 4] flags : 'a Flags.O.t [@rtlmangle true] } [@@deriving sexp_of, hardcaml]
+    type 'a t = { opcode : 'a; [@bits 4] ready : 'a; flags : 'a Flags.O.t [@rtlmangle true] } [@@deriving sexp_of, hardcaml]
   end
 
   module O = struct
     type 'a t = { output : 'a Output.O.t; [@rtlmangle true] state : 'a State.t } [@@deriving sexp_of, hardcaml]
   end
 
-  let create ~rom scope i =
+  let create ~rom ?(split_ram=true) scope i =
     let open Signal in
     let ( -- ) = Scope.naming scope in
     let clock = i.I.clock in
     let reset = i.I.reset in
     let w_data = wire Ram.bits -- "bus" in
     let memory_addr = MemoryAddr.create scope { Register.I.clock; reset; w_en = i.I.control._MI; w_data } in
-    let memory =
-      MemoryWithRom.create ~rom scope { MemoryWithRom.I.clock; w_en = i.control._RI; addr = memory_addr.data; w_data }
+    let (memory,ready) =
+      let bus = { Ram.I.clock; w_en = i.control._RI; addr = memory_addr.data; w_data } in
+      if split_ram then
+       let memory = MemoryWithRom.create ~rom scope bus in
+       memory,Signal.vdd
+      else
+        let memory = InitializedMemory.(create ~rom scope {bus;reset}) in
+        memory.bus,memory.ready
     in
     let output = Output.create scope { Output.I.clock; reset; w_en = i.control._OI; w_data } in
     let a = Register.create scope { Register.I.clock; reset; w_en = i.control._AI; w_data } in
@@ -574,16 +580,16 @@ module CpuExecutor = struct
           when_ i.control._RO [ bus <-- memory.data ];
         ]);
     w_data <== bus.value;
-    let state = { State.opcode = instruction.code; flags } in
+    let state = { State.opcode = instruction.code; flags; ready } in
     { O.output; state }
 end
 
-let cpu_executor_test =
+let cpu_executor_test ~split_ram =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (CpuExecutor.I) (CpuExecutor.O) in
   let rom = List.map (Signal.of_int ~width:Ram.bits) [ 0x01; 0x12; 0x23; 0x34; 0x45; 0x56; 0x76 ] in
   let waves, sim =
-    CpuExecutor.create ~rom scope
+    CpuExecutor.create ~rom ~split_ram scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
     |> Hardcaml_waveterm.Waveform.create
   in
@@ -641,6 +647,14 @@ let cpu_executor_test =
   let _LDI = _NOP @ [ [ c._IO; c._AI ] ] in
   let _JMP = _NOP @ [ [ c._IO; c._J ] ] in
   let _OUT = _NOP @ [ [ c._AO; c._OI ] ] in
+  let rec wait n =
+    let outputs = Cyclesim.outputs sim in
+    let ready = ! (outputs.CpuExecutor.O.state.ready) |> Bits.to_int in
+    if ready = 0 then begin
+      cycles 1;
+      succ n |> wait
+    end else if n = 0 then 0  else n - 1 in
+  let start_cycle = wait 0 in
   command _NOP;
   command _LDA;
   command _ADD;
@@ -655,7 +669,14 @@ let cpu_executor_test =
   clear inputs.cpu_reset;
   command _NOP;
   command _LDA;
-  Hardcaml_waveterm.Waveform.print ~display_height:62 ~display_width:100 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~start_cycle ~display_height:64 ~display_width:100 ~wave_width:0 waves
+
+let cpu_executor_test_rom =
+  cpu_executor_test ~split_ram:true
+
+let cpu_executor_test_ram =
+  cpu_executor_test ~split_ram:false
+
 
 module Counter (Max : Util.Integer) = struct
   let bits = Max.value - 1 |> Bits.num_bits_to_represent
@@ -922,30 +943,32 @@ module Cpu = struct
     type 'a t = { output : 'a Output.O.t } [@@deriving sexp_of, hardcaml]
   end
 
-  let create ~rom scope i =
+  let create ~rom ~split_ram scope i =
     let open Signal in
     let state =
-      { CpuExecutor.State.opcode = wire Isa.Instruction.code_bits; flags = { Flags.O.zero = wire 1; carry = wire 1 } }
+      { CpuExecutor.State.opcode = wire Isa.Instruction.code_bits; ready = wire 1;flags = { Flags.O.zero = wire 1; carry = wire 1 } }
     in
     let clock = i.I.clock in
     let control =
       CpuControl.(create scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; cpu = state })
     in
     let executor =
-      CpuExecutor.(create ~rom scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; control })
+      CpuExecutor.(create ~rom ~split_ram scope { I.clock; enable = i.enable; reset = i.reset; cpu_reset = i.cpu_reset; control })
     in
-    state.opcode <== executor.CpuExecutor.O.state.opcode;
-    state.flags.zero <== executor.CpuExecutor.O.state.flags.zero;
-    state.flags.carry <== executor.CpuExecutor.O.state.flags.carry;
+    let open CpuExecutor.O in
+    state.opcode <== executor.state.opcode;
+    state.flags.zero <== executor.state.flags.zero;
+    state.flags.carry <== executor.state.flags.carry;
+    state.ready <== executor.state.ready;
     { O.output = executor.output }
 end
 
-let cpu_test =
+let cpu_test ~split_ram =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O) in
   let rom = Isa.(assembler [ lda 14; add 15; out; hlt ]) |> List.map (Signal.of_int ~width:Ram.bits) in
   let waves, sim =
-    Cpu.create ~rom scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create
+    Cpu.create ~rom ~split_ram scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create
   in
   let inputs = Cyclesim.inputs sim in
   let set wire = wire := Bits.vdd in
