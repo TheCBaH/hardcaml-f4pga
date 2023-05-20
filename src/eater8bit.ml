@@ -56,7 +56,7 @@ module Alu = struct
   let bits = 8
 
   module Code = struct
-    type t = Sub | Add [@@deriving sexp_of, compare, enumerate]
+    type t = Add | Sub [@@deriving sexp_of, compare, enumerate]
   end
 
   include Enum.Make_enums (Code)
@@ -984,7 +984,8 @@ let cpu_test ~split_ram =
     |> extend 16 |> write 14 0x23 |> write 15 0x45
     |> List.map (Bits.of_int ~width:Ram.bits)
   in
-  Format.printf "[%a]%!" Format.(pp_print_list Bits.pp) rom;
+  List.mapi (fun n v -> Bits.to_int v |> Printf.sprintf "%2u: %02x " n) rom |>
+  Format.printf "[%a]\n%!" Format.(pp_print_list pp_print_string);
   let waves, sim =
     Cpu.create ~rom ~split_ram scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
