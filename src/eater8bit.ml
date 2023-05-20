@@ -875,7 +875,8 @@ module CpuControl = struct
     let halt = halt |: control HLT in
     let halt = halt &: ~:(i.I.cpu_reset) in
     halt_next <== halt;
-    Isa.Control.{
+    Isa.Control.
+      {
         O._HLT = halt_next;
         _MI = control MI;
         _RI = control RI;
@@ -940,7 +941,7 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { output : 'a Output.O.t [@rtlname "output"] ; ready : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output : 'a Output.O.t; [@rtlname "output"] ready : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom ~split_ram scope i =
@@ -955,7 +956,7 @@ module Cpu = struct
     let clock = i.I.clock in
     let control =
       let enable = i.enable &: state.ready in
-      CpuControl.(create scope { I.clock; enable ; reset = i.reset; cpu_reset = i.cpu_reset; cpu = state })
+      CpuControl.(create scope { I.clock; enable; reset = i.reset; cpu_reset = i.cpu_reset; cpu = state })
     in
     let executor =
       CpuExecutor.(
@@ -966,17 +967,23 @@ module Cpu = struct
     state.flags.zero <== executor.state.flags.zero;
     state.flags.carry <== executor.state.flags.carry;
     state.ready <== executor.state.ready;
-    { O.output = executor.output; ready=executor.state.ready }
+    { O.output = executor.output; ready = executor.state.ready }
 end
 
 let cpu_test ~split_ram =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O) in
   let write addr data = List.mapi (fun n a -> if n = addr then data else a) in
-  let extend n l = let len = List.length l in
-    let zeros = List.init (n-len) (fun _ -> 0 ) in
-   l @ zeros in
-  let rom = Isa.(assembler [ lda 14; add 15; out; hlt ]) |> extend 16 |> write 14 0x23 |> write 15 0x45 |> List.map (Bits.of_int ~width:Ram.bits) in
+  let extend n l =
+    let len = List.length l in
+    let zeros = List.init (n - len) (fun _ -> 0) in
+    l @ zeros
+  in
+  let rom =
+    Isa.(assembler [ lda 14; add 15; out; hlt ])
+    |> extend 16 |> write 14 0x23 |> write 15 0x45
+    |> List.map (Bits.of_int ~width:Ram.bits)
+  in
   Format.printf "[%a]%!" Format.(pp_print_list Bits.pp) rom;
   let waves, sim =
     Cpu.create ~rom ~split_ram scope
@@ -1012,8 +1019,8 @@ let cpu_test ~split_ram =
   clear inputs.cpu_reset;
   cycles Isa.max_cycles;
   cycles Isa.max_cycles;
-  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:12 ~display_height:33 ~display_width:120 ~wave_width:1 waves
+  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:12 ~display_height:33 ~display_width:120 ~wave_width:1
+    waves
 
 let cpu_test_rom = cpu_test ~split_ram:true
-
 let cpu_test_ram = cpu_test ~split_ram:false
