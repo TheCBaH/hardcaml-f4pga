@@ -942,6 +942,8 @@ let cpu_control_test =
   Isa.lda 14 |> exec;
   Isa.add 15 |> exec;
   Isa.out |> exec;
+  Isa.jmp 0 |> exec;
+  Isa.jc 4 |> exec;
   Isa.hlt |> exec;
   cycles 2;
   set inputs.cpu_reset;
@@ -954,7 +956,7 @@ let cpu_control_test =
   cycles Isa.max_cycles;
   Isa.nop |> exec;
   cycles 2;
-  Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:52 ~display_width:100 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:54 ~display_width:110 ~wave_width:0 waves
 
 module Cpu = struct
   module I = struct
@@ -962,7 +964,7 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { output : 'a Output.O.t; [@rtlname "output"] ready : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] ready : 'a } [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom ~split_ram scope i =
@@ -991,20 +993,10 @@ module Cpu = struct
     { O.output = executor.output; ready = executor.state.ready }
 end
 
-let cpu_test ~split_ram =
+let cpu_test ~rom ~split_ram =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O) in
-  let write addr data = List.mapi (fun n a -> if n = addr then data else a) in
-  let extend n l =
-    let len = List.length l in
-    let zeros = List.init (n - len) (fun _ -> 0) in
-    l @ zeros
-  in
-  let rom =
-    Isa.(assembler [ lda 14; add 15; out; hlt ])
-    |> extend 16 |> write 14 0x23 |> write 15 0x45
-    |> List.map (Bits.of_int ~width:Ram.bits)
-  in
+  let rom = List.map (Bits.of_int ~width:Ram.bits) rom in
   List.mapi (fun n v -> Bits.to_int v |> Printf.sprintf "%2u: %02x " n) rom
   |> Format.printf "[%a]\n%!" Format.(pp_print_list pp_print_string);
   let waves, sim =
@@ -1030,19 +1022,32 @@ let cpu_test ~split_ram =
     else n - 1
   in
   let start_cycle = wait 0 in
+  let step () = cycles Isa.max_cycles in
   set inputs.enable;
-  cycles Isa.max_cycles;
-  cycles Isa.max_cycles;
-  cycles Isa.max_cycles;
-  cycles Isa.max_cycles;
+  step ();
+  step ();
+  step ();
   cycles 3;
   set inputs.cpu_reset;
   cycles 1;
   clear inputs.cpu_reset;
-  cycles Isa.max_cycles;
-  cycles Isa.max_cycles;
-  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:12 ~display_height:33 ~display_width:120 ~wave_width:1
+  step ();
+  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:14 ~display_height:33 ~display_width:110 ~wave_width:1
     waves
 
-let cpu_test_rom = cpu_test ~split_ram:true
-let cpu_test_ram = cpu_test ~split_ram:false
+let rom_process ~process code =
+  let write addr data = List.mapi (fun n a -> if n = addr then data else a) in
+  let extend n l =
+    let len = List.length l in
+    let zeros = List.init (n - len) (fun _ -> 0) in
+    l @ zeros
+  in
+  code |> extend 16 |> process ~write
+
+let cpu_test_halt =
+  (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
+  let rom =
+    Isa.(assembler [ lda 14; add 15; out; hlt ])
+    |> rom_process ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
+  in
+  cpu_test ~split_ram:false ~rom
