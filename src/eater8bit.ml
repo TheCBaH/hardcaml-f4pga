@@ -726,7 +726,7 @@ module Isa = struct
       | CE (* Program counter enable *)
       | CO (* Program counter out *)
       | J (* Jump (Program counter in) *)
-      | FI (* Jump (Program counter in) *)
+      | FI (* Flags in *)
     [@@deriving compare, enumerate]
 
     let count = List.length all
@@ -744,19 +744,26 @@ module Isa = struct
     let code t = List.map code_of_cycle t
   end
 
-  type t = { code : int; name : string; ucode : Ucode.t }
+  module Flag = struct
+    type t = Z | C [@@deriving compare, enumerate]
+
+    let count = List.length all
+  end
+
+  type t = { code : int; name : string; ucode : Ucode.t; flags : Flag.t list }
 
   let commands = ref []
 
-  let make name code ucode =
-    let nop =
-      Control.
-        [
-          [ MI; CO ] (*                                  cycle 1 *);
-          [ RO; II; CE ] (*                              cycle 2 *);
-        ]
-    in
-    { code; name; ucode = nop @ ucode }
+  let ucode_nop =
+    Control.
+      [
+        [ MI; CO ] (*                                  cycle 1 *);
+        [ RO; II; CE ] (*                              cycle 2 *);
+      ]
+
+  let make ~name ~code ?flags ucode =
+    let flags = Option.value ~default:[] flags in
+    { code; name; flags; ucode = ucode_nop @ ucode }
 
   module Instruction = struct
     type args = Zero | One of int
@@ -767,17 +774,17 @@ module Isa = struct
     let make ~code ~arg = (code lsl arg_bits) lor arg
   end
 
-  let register name code ucode =
-    let cmd = make name code ucode in
+  let register ~name ~code ?flags ucode =
+    let cmd = make ~name ~code ?flags ucode in
     commands := cmd :: !commands;
     ()
 
   let no_op name code ucode =
-    register name code ucode;
+    register ~name ~code ucode;
     Instruction.{ code; args = Zero }
 
-  let single_op name code ucode =
-    register name code ucode;
+  let single_op ?flags name code ucode =
+    register ~name ~code ?flags ucode;
     fun arg -> Instruction.{ code; args = One arg }
 
   let nop = no_op "NOP" 0b0000 []
@@ -818,6 +825,8 @@ module Isa = struct
 
   let ldi = single_op "LDI" 0b0101 Control.[ [ IO; AI ] ]
   let jmp = single_op "JMP" 0b0110 Control.[ [ IO; J ] ]
+  let jc = single_op ~flags:[ Flag.C ] "JC" 0b0111 Control.[ [ IO; J ] ]
+  let jz = single_op ~flags:[ Flag.Z ] "JZ" 0b0111 Control.[ [ IO; J ] ]
   let out = no_op "OUT" 0b1110 Control.[ [ AO; OI ] ]
   let hlt = no_op "HLT" 0b1111 Control.[ [ HLT ] ]
 
@@ -830,19 +839,31 @@ module Isa = struct
 
   let bits, ucode_bits, max_cycles, ucode =
     let bits = List.length Control.all in
-    let all = List.map (fun c -> (c.code, Ucode.code c.ucode)) !commands in
-    let max_cycles = List.map (fun (_, ucode) -> List.length ucode) all |> Base.List.max_elt ~compare |> Option.get in
+    let all = List.map (fun c -> (c.code, (c.flags, Ucode.code c.ucode))) !commands in
+    let max_cycles =
+      List.map (fun (_, (_, ucode)) -> List.length ucode) all |> Base.List.max_elt ~compare |> Option.get
+    in
     let ucode_bits = max_cycles - 1 |> Bits.num_bits_to_represent in
     let max_ucode = 1 lsl ucode_bits in
     let ops_bits = 4 in
     let ops = 1 lsl ops_bits in
     let ucode =
-      List.init ops (fun op ->
-          let ucode = List.assoc_opt op all |> Option.value ~default:[] in
-          let len = List.length ucode in
-          let tail = List.init (max_ucode - len) (fun _ -> 0) in
-          ucode @ tail)
-      |> List.flatten
+      let flags = [ []; [ Flag.C ]; [ Flag.Z ]; [ Flag.C; Flag.Z ] ] in
+      let ucode_flag flag =
+        List.init ops (fun op ->
+            let flags, ucode = List.assoc_opt op all |> Option.value ~default:([], []) in
+            let ucode =
+              match flags with
+              | [] -> ucode
+              | [ f ] -> if List.mem f flag then ucode else Ucode.code ucode_nop
+              | _ -> assert false
+            in
+            let len = List.length ucode in
+            let tail = List.init (max_ucode - len) (fun _ -> 0) in
+            ucode @ tail)
+        |> List.flatten
+      in
+      List.map ucode_flag flags |> List.flatten
     in
     (bits, ucode_bits, max_cycles, ucode)
 end
@@ -869,7 +890,7 @@ module CpuControl = struct
     in
     let ( -- ) = Scope.naming scope in
     let cycle = counter.data -- "cycle" in
-    let state = concat_msb [ i.I.cpu.opcode; cycle ] in
+    let state = concat_msb [ i.I.cpu.flags.zero; i.I.cpu.flags.carry; i.I.cpu.opcode; cycle ] in
     let ucode = List.map (Signal.of_int ~width:Isa.bits) Isa.ucode |> mux state in
     let control c = Isa.Control.to_int c |> bit ucode in
     let halt = halt |: control HLT in
