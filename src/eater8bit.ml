@@ -995,6 +995,69 @@ module Cpu = struct
     { O.output = executor.output; ready = executor.state.ready }
 end
 
+module type CpuConfig = sig
+  val rom : int list
+  val split_ram : bool
+end
+
+let cpu_config ~rom ~split_ram : (module CpuConfig) =
+  (module struct
+    let rom = rom
+    let split_ram = split_ram
+  end)
+
+module CpuTest(Config: CpuConfig) = struct
+  let scope = Scope.create ~flatten_design:true ()
+  module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O)
+  let rom = List.map (Bits.of_int ~width:Ram.bits) Config.rom
+
+  let _ =
+  List.mapi (fun n v -> Bits.to_int v |> Printf.sprintf "%2u: %02x " n) rom
+  |> Format.printf "[%a]\n%!" Format.(pp_print_list pp_print_string)
+
+  let waves, sim =
+    Cpu.create ~rom ~split_ram:Config.split_ram scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
+
+  let inputs = Cyclesim.inputs sim
+  let set wire = wire := Bits.vdd
+  let clear wire = wire := Bits.vdd
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  let rec wait n =
+    let outputs = Cyclesim.outputs sim in
+    let ready = !(outputs.Cpu.O.ready) |> Bits.to_int in
+    if ready = 0 then (
+      cycles 1;
+      succ n |> wait)
+    else if n = 0 then 0
+    else n - 1
+
+  let start_cycle = wait 0
+
+  let step () = cycles Isa.max_cycles
+
+  let _ = set inputs.enable
+
+end
+
+let cpu_test ~rom ~split_ram =
+  let module Cpu = CpuTest ((val cpu_config ~rom ~split_ram)) in
+  let open Cpu in
+  step ();
+  step ();
+  step ();
+  cycles 3;
+  set inputs.cpu_reset;
+  cycles 1;
+  clear inputs.cpu_reset;
+  step ();
+  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:14 ~display_height:33 ~display_width:110 ~wave_width:1
+    waves
+
 let cpu_test ~rom ~split_ram =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O) in
@@ -1044,7 +1107,7 @@ let rom_prepare ~process code =
     let zeros = List.init (n - len) (fun _ -> 2) in
     l @ zeros
   in
-  code |> extend 16 |> process ~write
+  code |> extend Ram.size  |> process ~write
 
 let cpu_test_halt =
   (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
