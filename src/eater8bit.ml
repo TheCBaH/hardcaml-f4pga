@@ -288,19 +288,17 @@ module MemoryWithRom = struct
     let memory = Ram.create scope i in
     let rom = List.map (fun v -> Bits.to_constant v |> of_constant) rom in
     let data =
-    if rom_len = 1 lsl rom_bits then
-      mux i.I.addr rom
-    else if rom_len = 0 then
-      memory.O.data
-    else
-      mux i.I.addr (rom @ [memory.O.data]) in
+      if rom_len = 1 lsl rom_bits then mux i.I.addr rom
+      else if rom_len = 0 then memory.O.data
+      else mux i.I.addr (rom @ [ memory.O.data ])
+    in
     { O.data }
 end
 
 let memory_rom_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (MemoryWithRom.I) (MemoryWithRom.O) in
-  let rom = List.map (Bits.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33; (* 3;4;5;6;7;8;9;10;11;12;13;14 ;15 *) ] in
+  let rom = List.map (Bits.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33 (* 3;4;5;6;7;8;9;10;11;12;13;14 ;15 *) ] in
   let waves, sim =
     MemoryWithRom.create ~rom scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
@@ -1049,10 +1047,9 @@ let rom_prepare ~process code =
   code |> extend 16 |> process ~write
 
 let cpu_test_halt =
- (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
- let rom =
-    Isa.(assembler [ lda 1; add 15; out; hlt ]) |>
-  rom_prepare ~process:(fun ~write code ->
-    code |> write 14 0x23 |> write 15 0x45)
+  (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
+  let rom =
+    Isa.(assembler [ lda 1; add 15; out; hlt ])
+    |> rom_prepare ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
   in
   cpu_test ~split_ram:true ~rom
