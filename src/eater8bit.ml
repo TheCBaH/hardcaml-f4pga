@@ -180,7 +180,7 @@ let memory_test =
   do_read 8;
   do_read 7;
   cycle ();
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves
+  Hardcaml_waveterm.Waveform.print ~display_height:15 ~display_width:80 ~wave_width:1 waves
 
 module InitializedMemory = struct
   module I = struct
@@ -283,20 +283,24 @@ module MemoryWithRom = struct
   let create ~rom scope i =
     let rom_len = List.length rom in
     assert (rom_len <= Ram.size);
-    let rom_bits = Bits.num_bits_to_represent rom_len in
+    let rom_bits = Bits.address_bits_for rom_len in
     let open Signal in
     let memory = Ram.create scope i in
-    let rom_select = Signal.( <:. ) i.I.addr rom_len in
     let rom = List.map (fun v -> Bits.to_constant v |> of_constant) rom in
-    let rom_data = mux (uresize i.I.addr rom_bits) rom in
-    let data = mux2 rom_select rom_data memory.O.data in
+    let data =
+    if rom_len = 1 lsl rom_bits then
+      mux i.I.addr rom
+    else if rom_len = 0 then
+      memory.O.data
+    else
+      mux i.I.addr (rom @ [memory.O.data]) in
     { O.data }
 end
 
 let memory_rom_test =
   let scope = Scope.create ~flatten_design:true () in
   let module Simulator = Cyclesim.With_interface (MemoryWithRom.I) (MemoryWithRom.O) in
-  let rom = List.map (Bits.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33 ] in
+  let rom = List.map (Bits.of_int ~width:Ram.bits) [ 0x11; 0x22; 0x33; (* 3;4;5;6;7;8;9;10;11;12;13;14 ;15 *) ] in
   let waves, sim =
     MemoryWithRom.create ~rom scope
     |> Simulator.create ~config:Cyclesim.Config.trace_all
@@ -335,7 +339,7 @@ let memory_rom_test =
   do_read 9;
   do_read 8;
   do_read 7;
-  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:80 ~wave_width:1 waves
+  Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:15 ~display_width:80 ~wave_width:1 waves
 
 module Pc = struct
   let bits = Ram.bits_addr
@@ -1035,19 +1039,20 @@ let cpu_test ~rom ~split_ram =
   Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:14 ~display_height:33 ~display_width:110 ~wave_width:1
     waves
 
-let rom_process ~process code =
+let rom_prepare ~process code =
   let write addr data = List.mapi (fun n a -> if n = addr then data else a) in
   let extend n l =
     let len = List.length l in
-    let zeros = List.init (n - len) (fun _ -> 0) in
+    let zeros = List.init (n - len) (fun _ -> 2) in
     l @ zeros
   in
   code |> extend 16 |> process ~write
 
 let cpu_test_halt =
-  (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
-  let rom =
-    Isa.(assembler [ lda 14; add 15; out; hlt ])
-    |> rom_process ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
+ (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
+ let rom =
+    Isa.(assembler [ lda 1; add 15; out; hlt ]) |>
+  rom_prepare ~process:(fun ~write code ->
+    code |> write 14 0x23 |> write 15 0x45)
   in
-  cpu_test ~split_ram:false ~rom
+  cpu_test ~split_ram:true ~rom
