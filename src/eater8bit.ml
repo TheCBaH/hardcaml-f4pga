@@ -530,8 +530,18 @@ module CpuExecutor = struct
     [@@deriving sexp_of, hardcaml]
   end
 
+  module Internal = struct
+    type 'a t = {
+      a : 'a Register.O.t; [@rtlmangle true]
+      b : 'a Register.O.t; [@rtlmangle true]
+      pc : 'a Pc.O.t; [@rtlmangle true]
+    }
+    [@@deriving sexp_of, hardcaml]
+  end
+
   module O = struct
-    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] state : 'a State.t } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] state : 'a State.t; internal : 'a Internal.t }
+    [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom ?(split_ram = true) scope i =
@@ -586,7 +596,8 @@ module CpuExecutor = struct
         ]);
     w_data <== bus.value;
     let state = { State.opcode = instruction.code; flags; ready } in
-    { O.output; state }
+    let internal = { Internal.a; b; pc } in
+    { O.output; state; internal }
 end
 
 let cpu_executor_test ~split_ram =
@@ -676,7 +687,7 @@ let cpu_executor_test ~split_ram =
   clear inputs.cpu_reset;
   command _NOP;
   command _LDA;
-  Hardcaml_waveterm.Waveform.print ~start_cycle ~display_height:64 ~display_width:100 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~start_cycle ~display_height:76 ~display_width:100 ~wave_width:0 waves
 
 let cpu_executor_test_rom = cpu_executor_test ~split_ram:true
 let cpu_executor_test_ram = cpu_executor_test ~split_ram:false
@@ -966,7 +977,8 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] ready : 'a } [@@deriving sexp_of, hardcaml]
+    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] ready : 'a; internal : 'a CpuExecutor.Internal.t }
+    [@@deriving sexp_of, hardcaml]
   end
 
   let create ~rom ~split_ram scope i =
@@ -992,7 +1004,7 @@ module Cpu = struct
     state.flags.zero <== executor.state.flags.zero;
     state.flags.carry <== executor.state.flags.carry;
     state.ready <== executor.state.ready;
-    { O.output = executor.output; ready = executor.state.ready }
+    { O.output = executor.output; ready = executor.state.ready; internal = executor.internal }
 end
 
 module type CpuConfig = sig
@@ -1023,6 +1035,12 @@ module CpuTest (Config : CpuConfig) = struct
     |> Hardcaml_waveterm.Waveform.create
 
   let inputs = Cyclesim.inputs sim
+  let outputs = Cyclesim.outputs sim
+  let read s = Bits.to_int !s
+  let a () = read outputs.internal.a.data
+  let b () = read outputs.internal.b.data
+  let pc () = read outputs.internal.pc.data
+  let output () = read outputs.output.data
   let set wire = wire := Bits.vdd
   let clear wire = wire := Bits.vdd
 
@@ -1045,7 +1063,7 @@ module CpuTest (Config : CpuConfig) = struct
   let _ = set inputs.enable
 end
 
-let cpu_test ~rom ~split_ram =
+let cpu_test_waves ~rom ~split_ram =
   let module Cpu = CpuTest ((val cpu_config ~rom ~split_ram)) in
   let open Cpu in
   step ();
@@ -1074,4 +1092,22 @@ let cpu_test_halt =
     Isa.(assembler [ lda 1; add 15; out; hlt ])
     |> rom_prepare ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
   in
-  cpu_test ~split_ram:true ~rom
+  cpu_test_waves ~split_ram:true ~rom
+
+let cpu_test_state ~rom ~split_ram ~steps =
+  let module Cpu = CpuTest ((val cpu_config ~rom ~split_ram)) in
+  let print n =
+    Printf.printf "%-3u PC:%02X A:%02X B:%02X OUT:%02X\n%!" n (Cpu.pc ()) (Cpu.a ()) (Cpu.b ()) (Cpu.output ())
+  in
+  print 0;
+  for n = 1 to steps do
+    Cpu.step ();
+    print n
+  done
+
+let cpu_test_loop =
+  let rom =
+    Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ])
+    |> rom_prepare ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
+  in
+  cpu_test_state ~split_ram:false ~rom ~steps:20
