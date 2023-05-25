@@ -515,7 +515,7 @@ module CpuExecutor = struct
       _CE : 'a; (* Program counter enable *)
       _CO : 'a; (* Program counter out *)
       _J : 'a; (* Jump (Program counter in) *)
-      _FI : 'a; (* Jump (Program counter in) *)
+      _FI : 'a; (* Flags in *)
     }
     [@@deriving sexp_of, hardcaml]
   end
@@ -596,7 +596,7 @@ module CpuExecutor = struct
         ]);
     w_data <== bus.value;
     let state = { State.opcode = instruction.code; flags; ready } in
-    let internal = { Internal.a; b; pc } in
+    let internal = { Internal.a; b; pc} in
     { O.output; state; internal }
 end
 
@@ -839,7 +839,7 @@ module Isa = struct
   let ldi = single_op "LDI" 0b0101 Control.[ [ IO; AI ] ]
   let jmp = single_op "JMP" 0b0110 Control.[ [ IO; J ] ]
   let jc = single_op ~flags:[ Flag.C ] "JC" 0b0111 Control.[ [ IO; J ] ]
-  let jz = single_op ~flags:[ Flag.Z ] "JZ" 0b0111 Control.[ [ IO; J ] ]
+  let jz = single_op ~flags:[ Flag.Z ] "JZ" 0b1000 Control.[ [ IO; J ] ]
   let out = no_op "OUT" 0b1110 Control.[ [ AO; OI ] ]
   let hlt = no_op "HLT" 0b1111 Control.[ [ HLT ] ]
 
@@ -956,7 +956,8 @@ let cpu_control_test =
   Isa.add 15 |> exec;
   Isa.out |> exec;
   Isa.jmp 0 |> exec;
-  Isa.jc 4 |> exec;
+  inputs.cpu.flags.zero := Bits.vdd;
+  Isa.jz 4 |> exec;
   Isa.hlt |> exec;
   cycles 2;
   set inputs.cpu_reset;
@@ -969,7 +970,7 @@ let cpu_control_test =
   cycles Isa.max_cycles;
   Isa.nop |> exec;
   cycles 2;
-  Hardcaml_waveterm.Waveform.print ~signals_width:8 ~display_height:54 ~display_width:110 ~wave_width:0 waves
+  Hardcaml_waveterm.Waveform.print ~signals_width:14 ~display_height:56 ~display_width:110 ~wave_width:0 waves
 
 module Cpu = struct
   module I = struct
@@ -977,7 +978,7 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] ready : 'a; internal : 'a CpuExecutor.Internal.t }
+    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] ready : 'a; internal : 'a CpuExecutor.Internal.t; flags: 'a Flags.O.t }
     [@@deriving sexp_of, hardcaml]
   end
 
@@ -1004,7 +1005,7 @@ module Cpu = struct
     state.flags.zero <== executor.state.flags.zero;
     state.flags.carry <== executor.state.flags.carry;
     state.ready <== executor.state.ready;
-    { O.output = executor.output; ready = executor.state.ready; internal = executor.internal }
+    { O.output = executor.output; ready = executor.state.ready; internal = executor.internal; flags = state.flags }
 end
 
 module type CpuConfig = sig
@@ -1041,6 +1042,9 @@ module CpuTest (Config : CpuConfig) = struct
   let b () = read outputs.internal.b.data
   let pc () = read outputs.internal.pc.data
   let output () = read outputs.output.data
+
+  let zero () = read outputs.flags.zero
+  let carry () = read outputs.flags.carry
   let set wire = wire := Bits.vdd
   let clear wire = wire := Bits.vdd
 
@@ -1074,7 +1078,7 @@ let cpu_test_waves ~rom ~split_ram =
   cycles 1;
   clear inputs.cpu_reset;
   step ();
-  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:14 ~display_height:33 ~display_width:110 ~wave_width:1
+  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:14 ~display_height:50 ~display_width:110 ~wave_width:1
     waves
 
 let rom_prepare ~process code =
@@ -1089,15 +1093,17 @@ let rom_prepare ~process code =
 let cpu_test_halt =
   (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
   let rom =
-    Isa.(assembler [ lda 1; add 15; out; hlt ])
-    |> rom_prepare ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
+    Isa.(assembler [ lda 14; add 15; out; hlt ])
+    |> rom_prepare ~process:(fun ~write code -> code |> write 14 0xFF |> write 15 0x45)
   in
   cpu_test_waves ~split_ram:true ~rom
 
 let cpu_test_state ~rom ~split_ram ~steps =
   let module Cpu = CpuTest ((val cpu_config ~rom ~split_ram)) in
   let print n =
-    Printf.printf "%-3u PC:%02X A:%02X B:%02X OUT:%02X\n%!" n (Cpu.pc ()) (Cpu.a ()) (Cpu.b ()) (Cpu.output ())
+    let carry = if Cpu.carry () != 0 then 'C' else '.' in
+    let zero = if Cpu.zero () != 0 then 'Z' else '.' in
+    Printf.printf "%-3u PC:%02X A:%02X B:%02X OUT:%02X %c%c\n%!" n (Cpu.pc ()) (Cpu.a ()) (Cpu.b ()) (Cpu.output ()) zero carry
   in
   print 0;
   for n = 1 to steps do
