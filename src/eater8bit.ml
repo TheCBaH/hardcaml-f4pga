@@ -596,7 +596,7 @@ module CpuExecutor = struct
         ]);
     w_data <== bus.value;
     let state = { State.opcode = instruction.code; flags; ready } in
-    let internal = { Internal.a; b; pc} in
+    let internal = { Internal.a; b; pc } in
     { O.output; state; internal }
 end
 
@@ -978,7 +978,12 @@ module Cpu = struct
   end
 
   module O = struct
-    type 'a t = { output : 'a Output.O.t; [@rtlmangle true] ready : 'a; internal : 'a CpuExecutor.Internal.t; flags: 'a Flags.O.t }
+    type 'a t = {
+      output : 'a Output.O.t; [@rtlmangle true]
+      ready : 'a;
+      internal : 'a CpuExecutor.Internal.t;
+      flags : 'a Flags.O.t;
+    }
     [@@deriving sexp_of, hardcaml]
   end
 
@@ -1042,7 +1047,6 @@ module CpuTest (Config : CpuConfig) = struct
   let b () = read outputs.internal.b.data
   let pc () = read outputs.internal.pc.data
   let output () = read outputs.output.data
-
   let zero () = read outputs.flags.zero
   let carry () = read outputs.flags.carry
   let set wire = wire := Bits.vdd
@@ -1103,7 +1107,8 @@ let cpu_test_state ~rom ~split_ram ~steps =
   let print n =
     let carry = if Cpu.carry () != 0 then 'C' else '.' in
     let zero = if Cpu.zero () != 0 then 'Z' else '.' in
-    Printf.printf "%-3u PC:%02X A:%02X B:%02X OUT:%02X %c%c\n%!" n (Cpu.pc ()) (Cpu.a ()) (Cpu.b ()) (Cpu.output ()) zero carry
+    Printf.printf "%-3u PC:%02X A:%02X B:%02X OUT:%02X %c%c\n%!" n (Cpu.pc ()) (Cpu.a ()) (Cpu.b ()) (Cpu.output ())
+      zero carry
   in
   print 0;
   for n = 1 to steps do
