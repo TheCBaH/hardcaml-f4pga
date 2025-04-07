@@ -100,4 +100,5 @@ for PKG in $F4PGA_PACKAGES; do
     rm -f $fname
 done
 
+conda clean --all --force-pkgs-dirs
 chown -R "${USERNAME}" $conda_dir
