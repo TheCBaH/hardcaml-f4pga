@@ -6,17 +6,6 @@ let level_control_float ~max ~levels ~level =
   let value = float_of_int level *. step_float in
   int_of_float value
 
-let level_control_test control =
-  let test max levels level =
-    control ~max ~levels ~level |> Printf.printf "max:%u levels:%u level:%u value:%u\n%!" max levels level
-  in
-  let levels = [ 15; 14; 11; 8; 4; 1; 0 ] in
-  List.iter (test 255 16) levels;
-  List.iter (test 25 16) levels;
-  List.iter (test 7 16) levels
-
-let level_control_float_test = level_control_test level_control_float
-
 let level_control_int ~max ~levels ~level ~scale =
   assert (levels > 1);
   let step_float = float_of_int max /. float_of_int (levels - 1) in
@@ -24,20 +13,7 @@ let level_control_int ~max ~levels ~level ~scale =
   let value = level * step_int / scale in
   value
 
-let level_control_int_test = level_control_test (level_control_int ~scale:1)
-let level_control_int_test_scaled_4 = level_control_test (level_control_int ~scale:4)
-let level_control_int_test_scaled_16 = level_control_test (level_control_int ~scale:16)
 let bits_of_constant c = Bits.num_bits_to_represent c
-
-let bits_of_constant_test =
-  let test c = bits_of_constant c |> Printf.printf "constant:%u bits:%u\n%!" c in
-  test 0;
-  test 1;
-  test 2;
-  test 3;
-  test 4;
-  test 7;
-  test 8
 
 let level_control_bit ~max ~levels ~level ~scale =
   let scale_bits = Base.Int.ceil_log2 scale in
@@ -53,22 +29,6 @@ let level_control_bit ~max ~levels ~level ~scale =
   let value = drop_bottom value_scaled scale_bits in
   bits_of_constant max |> uresize value
 
-let level_control_bit_test =
-  let test scale max levels level =
-    let level_bits = bits_of_constant level in
-    let level = Bits.of_int ~width:level_bits level in
-    let value = level_control_bit ~max ~levels ~level ~scale in
-    Printf.printf "scale:%u max:%u levels:%u level:%u value:%u:%u\n%!" scale max levels (Bits.to_int level)
-      (Bits.to_int value) (Bits.width value)
-  in
-  List.iter
-    (fun scale ->
-      let levels = [ 15; 14; 11; 8; 4; 1; 0 ] in
-      List.iter (test scale 255 16) levels;
-      List.iter (test scale 25 16) levels;
-      List.iter (test scale 7 16) levels)
-    [ 1; 4; 16 ]
-
 let level_control ~max ~levels ~level ~scale =
   let scale_bits = Base.Int.ceil_log2 scale in
   let scale = 1 lsl scale_bits in
@@ -81,34 +41,6 @@ let level_control ~max ~levels ~level ~scale =
   let value_scaled = level *: step in
   let value = drop_bottom value_scaled scale_bits in
   bits_of_constant max |> uresize value
-
-let level_control_test =
-  let _level = "level" in
-  let _value = "value" in
-  let levels = 16 in
-  let test scale max =
-    let level = Base.Int.ceil_log2 levels |> Signal.input _level in
-    let value = level_control ~levels ~level ~max ~scale in
-    let circuit = Circuit.create_exn ~name:"level_control" [ Signal.output _value value ] in
-    let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-    List.iter
-      (fun v ->
-        Cyclesim.in_port sim _level := Bits.of_int ~width:(Signal.width level) v;
-        Cyclesim.cycle sim)
-      [ 15; 14; 11; 9; 8; 7; 4; 1; 0 ];
-    let display_rules =
-      Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _level; _value ] ~wave_format:Unsigned_int; default ]
-    in
-    Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:8 ~display_width:80 ~wave_width:2 waves
-  in
-  List.iter
-    (fun scale ->
-      List.iter
-        (fun max ->
-          Printf.printf "scale:%u max:%u\n" scale max;
-          test max scale)
-        [ 4; 16 ])
-    [ 255; 25; 7 ]
 
 module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
   let bits = Levels.value - 1 |> Bits.num_bits_to_represent
@@ -152,35 +84,6 @@ module PwmControl (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
       create ~max scope { count = counter.count; level = input.level }
   end
 end
-
-let pwm_control_test =
-  let (module Levels) = Util.integer 4 in
-  let (module Base) = Util.integer 8 in
-  let scope = Scope.create ~flatten_design:true () in
-  let module PwmControl = PwmControl (Levels) (Base) in
-  let module Simulator = Cyclesim.With_interface (PwmControl.WithCounter.I) (PwmControl.O) in
-  let base = 8 in
-  let waves, sim =
-    PwmControl.WithCounter.create ~max:6 scope
-    |> Simulator.create ~config:Cyclesim.Config.trace_all
-    |> Hardcaml_waveterm.Waveform.create
-  in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let set_level v =
-    inputs.level := Bits.of_int ~width:(Bits.width !(inputs.level)) v;
-    2 * base |> cycles
-  in
-  set inputs.counter.enable;
-  set_level 1;
-  set_level 2;
-  set_level 3;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:100 ~wave_width:0 waves
 
 module Color = struct
   type t = { blue : int; green : int; red : int }
@@ -234,34 +137,6 @@ module Led (Levels : Util.Integer) (PwmBase : Util.Integer) = struct
       create ~color scope { count = counter.count; level = input.level }
   end
 end
-
-let led_control_test =
-  let (module Levels) = Util.integer 4 in
-  let (module Base) = Util.integer 8 in
-  let scope = Scope.create ~flatten_design:true () in
-  let module Led = Led (Levels) (Base) in
-  let module Simulator = Cyclesim.With_interface (Led.WithCounter.I) (Led.O) in
-  let base = 8 in
-  let color = { Color.red = 2; Color.blue = 4; Color.green = 7 } in
-  let waves, sim = Led.WithCounter.create ~color scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let set_level v =
-    List.iter
-      (fun i -> i := Bits.of_int ~width:(Bits.width !i) v)
-      [ inputs.level.l_blue; inputs.level.l_green; inputs.level.l_red ];
-    2 * base |> cycles
-  in
-  set inputs.counter.enable;
-  set_level 1;
-  set_level 2;
-  set_level 3;
-  Hardcaml_waveterm.Waveform.print ~display_height:23 ~display_width:100 ~wave_width:0 waves
 
 module LedStatic = struct
   module I = struct
