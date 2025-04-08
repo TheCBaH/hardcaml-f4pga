@@ -6,17 +6,6 @@ let level_control_float ~max ~levels ~level =
   let value = float_of_int level *. step_float in
   int_of_float value
 
-let level_control_test control =
-  let test max levels level =
-    control ~max ~levels ~level |> Printf.printf "max:%u levels:%u level:%u value:%u\n%!" max levels level
-  in
-  let levels = [ 15; 14; 11; 8; 4; 1; 0 ] in
-  List.iter (test 255 16) levels;
-  List.iter (test 25 16) levels;
-  List.iter (test 7 16) levels
-
-let level_control_float_test = level_control_test level_control_float
-
 let level_control_int ~max ~levels ~level ~scale =
   assert (levels > 1);
   let step_float = float_of_int max /. float_of_int (levels - 1) in
@@ -24,9 +13,6 @@ let level_control_int ~max ~levels ~level ~scale =
   let value = level * step_int / scale in
   value
 
-let level_control_int_test = level_control_test (level_control_int ~scale:1)
-let level_control_int_test_scaled_4 = level_control_test (level_control_int ~scale:4)
-let level_control_int_test_scaled_16 = level_control_test (level_control_int ~scale:16)
 let bits_of_constant c = Bits.num_bits_to_represent c
 
 let bits_of_constant_test =
