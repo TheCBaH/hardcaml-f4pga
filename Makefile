@@ -11,6 +11,9 @@ simulator:
 format:
 	opam exec dune fmt
 
+runtest:
+	opam exec -- dune $@ --auto-promote
+
 ocaml_clean:
 	opam exec dune $@
 	rm -f main.v
