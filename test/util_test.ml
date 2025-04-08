@@ -161,3 +161,42 @@ let%expect_test "counter_with_carry_test_2" =
     │                  ││──────┴─┴─┴─┴─┴───────┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴───┴─┴─┴───┴─┴─┴─ │
     └──────────────────┘└───────────────────────────────────────────────────────────────┘ |}]
 
+let%expect_test "trigger_test" =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (Trigger.I) (Trigger.O) in
+  let waves, sim =
+    Trigger.create ~clock_freq:10 ~target:2 scope
+    |> Simulator.create ~config:Cyclesim.Config.trace_all
+    |> Hardcaml_waveterm.Waveform.create
+  in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  cycles 7;
+  set inputs.reset;
+  cycles 2;
+  clear inputs.reset;
+  cycles 8;
+  set inputs.reset;
+  cycles 2;
+  clear inputs.reset;
+  cycles 10;
+  Hardcaml_waveterm.Waveform.print ~display_height:11 ~display_width:80 ~wave_width:0 waves;
+  [%expect
+    {|
+    ┌Signals───────────┐┌Waves─────────────────────────────────────────────────────┐
+    │clock             ││┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐│
+    │                  ││ └┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└│
+    │reset_            ││              ┌───┐               ┌───┐                   │
+    │                  ││──────────────┘   └───────────────┘   └───────────────────│
+    │pulse             ││        ┌─┐               ┌─┐                 ┌─┐       ┌─│
+    │                  ││────────┘ └───────────────┘ └─────────────────┘ └───────┘ │
+    │                  ││──┬─┬─┬─┬─┬─┬─┬─┬───┬─┬─┬─┬─┬─┬─┬─┬─┬───┬─┬─┬─┬─┬─┬─┬─┬─┬─│
+    │count             ││ 0│1│2│3│4│0│1│2│0  │1│2│3│4│0│1│2│3│0  │1│2│3│4│0│1│2│3│4│
+    │                  ││──┴─┴─┴─┴─┴─┴─┴─┴───┴─┴─┴─┴─┴─┴─┴─┴─┴───┴─┴─┴─┴─┴─┴─┴─┴─┴─│
+    └──────────────────┘└──────────────────────────────────────────────────────────┘ |}]
