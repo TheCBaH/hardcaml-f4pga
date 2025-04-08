@@ -84,7 +84,6 @@ module Alu = struct
     { O.data; carry; zero }
 end
 
-
 module Ram = struct
   let bits = 8
   let size = 16
@@ -115,7 +114,6 @@ module Ram = struct
     in
     { O.data = memory }
 end
-
 
 module InitializedMemory = struct
   module I = struct
@@ -155,7 +153,6 @@ module InitializedMemory = struct
     { O.bus = memory; ready = rom_done }
 end
 
-
 module MemoryWithRom = struct
   module I = Ram.I
   module O = Ram.O
@@ -174,7 +171,6 @@ module MemoryWithRom = struct
     in
     { O.data }
 end
-
 
 module Pc = struct
   let bits = Ram.bits_addr
@@ -201,7 +197,6 @@ module Pc = struct
     in
     { O.data = register }
 end
-
 
 (*
 module Output = struct

@@ -84,7 +84,8 @@ let%expect_test "alu_test" =
   alu Alu.Code.Add 0xF0 0x10;
   alu Alu.Code.Add 0xF0 0x20;
   Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves;
-  [%expect {|
+  [%expect
+    {|
     ((a 2) (i_op Add) (b 4) (data 6) (zero 0) (carry 0))
     ((a 6) (i_op Sub) (b 1) (data 5) (zero 0) (carry 0))
     ((a 3) (i_op Sub) (b 3) (data 0) (zero 1) (carry 0))
@@ -148,7 +149,8 @@ let%expect_test "memory_test" =
   do_read 7;
   cycle ();
   Hardcaml_waveterm.Waveform.print ~display_height:15 ~display_width:80 ~wave_width:1 waves;
-  [%expect {|
+  [%expect
+    {|
     ┌Signals───────────┐┌Waves─────────────────────────────────────────────────────┐
     │clock             ││┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─│
     │                  ││  └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ │
@@ -220,7 +222,8 @@ let%expect_test "initialized_memory_test" =
   do_read 7;
   do_read 5;
   Hardcaml_waveterm.Waveform.print ~display_height:24 ~display_width:94 ~wave_width:1 waves;
-  [%expect {|
+  [%expect
+    {|
     ┌Signals───────────┐┌Waves───────────────────────────────────────────────────────────────────┐
     │clock             ││┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ │
     │                  ││  └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─│
@@ -289,7 +292,8 @@ let%expect_test "memory_rom_test" =
   do_read 8;
   do_read 7;
   Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:15 ~display_width:80 ~wave_width:1 waves;
-  [%expect {|
+  [%expect
+    {|
     ┌Signals───┐┌Waves─────────────────────────────────────────────────────────────┐
     │clock     ││┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─│
     │          ││  └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ └─┘ │
@@ -338,7 +342,8 @@ let%expect_test "pc_test" =
   set inputs.enable;
   cycles 8;
   Hardcaml_waveterm.Waveform.print ~signals_width:12 ~display_height:18 ~display_width:60 ~wave_width:0 waves;
-  [%expect {|
+  [%expect
+    {|
     ┌Signals───┐┌Waves─────────────────────────────────────────┐
     │clock     ││┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐│
     │          ││ └┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└│
