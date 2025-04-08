@@ -38,7 +38,7 @@ let%expect_test "level_control_float_test" =
  |}]
 
 let%expect_test "level_control_int_test" =
-   level_control_test (level_control_int ~scale:1);
+  level_control_test (level_control_int ~scale:1);
   [%expect
     {|
       max:255 levels:16 level:15 value:255
@@ -65,7 +65,7 @@ let%expect_test "level_control_int_test" =
  |}]
 
 let%expect_test "level_control_int_test_scaled_4" =
- level_control_test (level_control_int ~scale:4);
+  level_control_test (level_control_int ~scale:4);
   [%expect
     {|
       max:255 levels:16 level:15 value:255
@@ -91,8 +91,8 @@ let%expect_test "level_control_int_test_scaled_4" =
       max:7 levels:16 level:0 value:0
  |}]
 
-let %expect_test "level_control_int_test_scaled_16" =
-level_control_test (level_control_int ~scale:16);
+let%expect_test "level_control_int_test_scaled_16" =
+  level_control_test (level_control_int ~scale:16);
   [%expect
     {|
       max:255 levels:16 level:15 value:255
@@ -117,5 +117,3 @@ level_control_test (level_control_int ~scale:16);
       max:7 levels:16 level:1 value:0
       max:7 levels:16 level:0 value:0
  |}]
-
-
