@@ -55,3 +55,49 @@ let%expect_test "pulse_test" =
     └─────────────┘└───────────────────────────────────────────┘
   |}]
 
+let%expect_test "counter_with_carry_test_1" =
+  let scope = Scope.create ~flatten_design:true () in
+  let (module CounterBits) = integer 3 in
+  let module Counter = Counter (CounterBits) in
+  let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
+  let waves, sim = Counter.create ~base:5 scope |> Simulator.create |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  cycles 2;
+  set inputs.enable;
+  cycles 5;
+  clear inputs.enable;
+  cycles 3;
+  set inputs.enable;
+  cycles 7;
+  clear inputs.enable;
+  cycles 1;
+  set inputs.enable;
+  cycles 2;
+  clear inputs.enable;
+  cycles 4;
+  set inputs.enable;
+  cycles 7;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:60 ~wave_width:0 waves;
+  [%expect
+    {|
+    ┌Signals──────┐┌Waves──────────────────────────────────────┐
+    │clock        ││┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌│
+    │             ││ └┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘│
+    │enable       ││    ┌─────────┐     ┌─────────────┐ ┌───┐  │
+    │             ││────┘         └─────┘             └─┘   └──│
+    │reset_       ││                                           │
+    │             ││───────────────────────────────────────────│
+    │cary         ││            ┌─┐             ┌─┐            │
+    │             ││────────────┘ └─────────────┘ └────────────│
+    │             ││──────┬─┬─┬─┬─┬───────┬─┬─┬─┬─┬─┬─┬───┬─┬──│
+    │count        ││ 0    │1│2│3│4│0      │1│2│3│4│0│1│2  │3│4 │
+    │             ││──────┴─┴─┴─┴─┴───────┴─┴─┴─┴─┴─┴─┴───┴─┴──│
+    │             ││                                           │
+    └─────────────┘└───────────────────────────────────────────┘ |}]
