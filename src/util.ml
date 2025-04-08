@@ -92,45 +92,6 @@ module Counter (Bits : Integer) = struct
     H.hierarchical ~scope ~name (create ?base) input
 end
 
-let counter_with_carry_test_2 =
-  let scope = Scope.create ~flatten_design:true () in
-  let (module CounterBits) = integer 4 in
-  let module Counter = Counter (CounterBits) in
-  let module Simulator = Cyclesim.With_interface (Counter.I) (Counter.O) in
-  let circuit input =
-    let count0 = Counter.create scope input in
-    let count1 = Counter.create scope { input with enable = count0.cary } in
-    let open Signal in
-    count0.count -- "count0" |> ignore;
-    count0.cary -- "cary0" |> ignore;
-    count1
-  in
-  let waves, sim = circuit |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let clear wire = wire := Bits.gnd in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 2;
-  set inputs.enable;
-  cycles 5;
-  clear inputs.enable;
-  cycles 3;
-  set inputs.enable;
-  cycles 12;
-  clear inputs.enable;
-  cycles 1;
-  set inputs.enable;
-  cycles 2;
-  set inputs.reset;
-  cycles 2;
-  clear inputs.reset;
-  cycles 4;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:85 ~wave_width:0 waves
-
 let trigger_gen ?divider ?target ?(exact = true) ?enable ?clock_freq ~reset ~clock scope =
   let enable = Option.value ~default:Signal.vdd enable in
   let always_enable = Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
