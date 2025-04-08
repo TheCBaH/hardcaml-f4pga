@@ -48,32 +48,6 @@ let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
   let anode, segment, dot = display scope ~clock ~digits ~reset ~next:refresh.pulse in
   (anode, segment, dot)
 
-let clock_top_test =
-  let _clock = "clock" in
-  let _reset = "_reset" in
-  let _dot = "dot" in
-  let _segment = "segment" in
-  let _anode = "anode" in
-  let clock_freq = 2000 in
-  let clock = Signal.input _clock 1 in
-  let reset = Signal.input _reset 1 in
-  let anode, segment, dot = clock_top ~clock_freq ~clock ~reset ~refresh:1000 ~tick:500 in
-  let circuit =
-    Circuit.create_exn ~name:"clock_top"
-      [ Signal.output _anode anode; Signal.output _segment segment; Signal.output _dot dot ]
-  in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 16;
-  let display_rules =
-    Hardcaml_waveterm.Display_rule.[ port_name_is_one_of [ _segment; _anode ] ~wave_format:Bit; default ]
-  in
-  Hardcaml_waveterm.Waveform.print ~display_rules ~display_height:14 ~display_width:80 ~wave_width:1 waves
-
 module Reset = struct
   module I = struct
     type 'a t = { clock : 'a; [@bits 1] activate : 'a [@bits 1] } [@@deriving sexp_of, hardcaml]
