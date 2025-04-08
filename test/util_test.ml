@@ -1,0 +1,57 @@
+open Hardcaml
+open Util
+
+let%expect_test "pulse_test" =
+  let scope = Scope.create ~flatten_design:true () in
+  let module Simulator = Cyclesim.With_interface (Pulse.I) (Pulse.O) in
+  let config =
+    {
+      Cyclesim.Config.default with
+      is_internal_port = Some (fun s -> Signal.names s |> List.exists (String.starts_with ~prefix:"count"));
+    }
+  in
+  let waves, sim = Pulse.create ~length:4 scope |> Simulator.create ~config |> Hardcaml_waveterm.Waveform.create in
+  let inputs = Cyclesim.inputs sim in
+  let cycles n =
+    for _ = 1 to n do
+      Cyclesim.cycle sim
+    done
+  in
+  let set wire = wire := Bits.vdd in
+  let clear wire = wire := Bits.gnd in
+  cycles 1;
+  set inputs.reset;
+  cycles 1;
+  clear inputs.reset;
+  cycles 4;
+  set inputs.reset;
+  cycles 3;
+  clear inputs.reset;
+  cycles 4;
+  set inputs.reset;
+  cycles 1;
+  clear inputs.reset;
+  cycles 1;
+  set inputs.reset;
+  cycles 1;
+  clear inputs.reset;
+  cycles 5;
+  Hardcaml_waveterm.Waveform.print ~display_height:14 ~display_width:60 ~wave_width:0 waves;
+  [%expect
+    {|
+    ┌Signals──────┐┌Waves──────────────────────────────────────┐
+    │clock        ││┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌┐┌│
+    │             ││ └┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘└┘│
+    │reset_       ││  ┌─┐       ┌─────┐       ┌─┐ ┌─┐          │
+    │             ││──┘ └───────┘     └───────┘ └─┘ └───────── │
+    │pulse        ││──────────┐   ┌─────────┐   ┌─────────┐    │
+    │             ││          └───┘         └───┘         └─── │
+    │             ││──┬─┬─┬─┬─┬───┬─────┬─┬─┬───┬─┬─┬─┬─┬─┬─── │
+    │count        ││ 0│1│0│1│2│3  │0    │1│2│3  │0│1│0│1│2│3   │
+    │             ││──┴─┴─┴─┴─┴───┴─────┴─┴─┴───┴─┴─┴─┴─┴─┴─── │
+    │             ││──┬─┬─┬─┬─────┬─────┬─┬─────┬─┬─┬─┬─┬───── │
+    │count_succ   ││ 1│2│1│2│3    │1    │2│3    │1│2│1│2│3     │
+    │             ││──┴─┴─┴─┴─────┴─────┴─┴─────┴─┴─┴─┴─┴───── │
+    └─────────────┘└───────────────────────────────────────────┘
+  |}]
+
