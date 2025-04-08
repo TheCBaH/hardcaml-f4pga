@@ -32,28 +32,6 @@ let multi_counter ?base ?bits ~digits ~reset ~increment ~clock () =
   in
   make [] increment digits
 
-let multi_counter_test =
-  let _clock = "clock" in
-  let _reset = "_reset" in
-  let reset = Signal.input _reset 1 in
-  let clock = Signal.input _clock 1 in
-  let digits = multi_counter ~base:4 ~increment:Signal.vdd ~clock ~reset ~digits:2 () in
-  let circuit =
-    List.mapi (fun n -> Printf.sprintf "digit_%u" n |> Signal.output) digits |> Circuit.create_exn ~name:"multi_counter"
-  in
-  let waves, sim = Hardcaml_waveterm.Waveform.create (Cyclesim.create circuit) in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 12;
-  Cyclesim.in_port sim _reset := Bits.vdd;
-  cycles 2;
-  Cyclesim.in_port sim _reset := Bits.gnd;
-  cycles 12;
-  Hardcaml_waveterm.Waveform.print ~display_height:12 ~display_width:70 ~wave_width:0 waves
-
 let clock_top ~clock_freq ~clock ~reset ~refresh ~tick =
   let open Signal in
   let scope = Scope.create () in
