@@ -731,47 +731,6 @@ module CpuControl = struct
       }
 end
 
-let cpu_control_test =
-  let scope = Scope.create ~flatten_design:true () in
-  let module Simulator = Cyclesim.With_interface (CpuControl.I) (CpuControl.O) in
-  let waves, sim =
-    CpuControl.create scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create
-  in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let clear wire = wire := Bits.gnd in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  let opcode code = inputs.cpu.opcode := Bits.of_int ~width:Isa.Instruction.code_bits code.Isa.Instruction.code in
-  let exec code =
-    opcode code;
-    cycles Isa.max_cycles
-  in
-  set inputs.enable;
-  Isa.nop |> exec;
-  Isa.lda 14 |> exec;
-  Isa.add 15 |> exec;
-  Isa.out |> exec;
-  Isa.jmp 0 |> exec;
-  inputs.cpu.flags.zero := Bits.vdd;
-  Isa.jz 4 |> exec;
-  Isa.hlt |> exec;
-  cycles 2;
-  set inputs.cpu_reset;
-  cycles 2;
-  clear inputs.cpu_reset;
-  Isa.nop |> exec;
-  clear inputs.enable;
-  cycles 2;
-  set inputs.enable;
-  cycles Isa.max_cycles;
-  Isa.nop |> exec;
-  cycles 2;
-  Hardcaml_waveterm.Waveform.print ~signals_width:14 ~display_height:56 ~display_width:110 ~wave_width:0 waves
-
 module Cpu = struct
   module I = struct
     type 'a t = { clock : 'a; enable : 'a; cpu_reset : 'a; reset : 'a } [@@deriving sexp_of, hardcaml]
