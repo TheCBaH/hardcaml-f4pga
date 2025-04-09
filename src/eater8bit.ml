@@ -18,40 +18,6 @@ module Register = struct
     { O.data = register }
 end
 
-let register_test =
-  let scope = Scope.create ~flatten_design:true () in
-  let module Simulator = Cyclesim.With_interface (Register.I) (Register.O) in
-  let waves, sim =
-    Register.create scope |> Simulator.create ~config:Cyclesim.Config.trace_all |> Hardcaml_waveterm.Waveform.create
-  in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let clear wire = wire := Bits.gnd in
-  let data v = inputs.w_data := Bits.of_int ~width:Register.bits v in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  cycles 1;
-  data 1;
-  set inputs.w_en;
-  cycles 1;
-  clear inputs.w_en;
-  data 2;
-  cycles 2;
-  set inputs.w_en;
-  cycles 2;
-  set inputs.reset;
-  cycles 2;
-  clear inputs.reset;
-  for i = 4 to 8 do
-    data i;
-    cycles 1
-  done;
-  cycles 1;
-  Hardcaml_waveterm.Waveform.print ~display_height:18 ~display_width:80 ~wave_width:1 waves
-
 module Alu = struct
   let bits = 8
 
@@ -399,98 +365,6 @@ module CpuExecutor = struct
     let internal = { Internal.a; b; pc } in
     { O.output; state; internal }
 end
-
-let cpu_executor_test ~split_ram =
-  let scope = Scope.create ~flatten_design:true () in
-  let module Simulator = Cyclesim.With_interface (CpuExecutor.I) (CpuExecutor.O) in
-  let rom = List.map (Bits.of_int ~width:Ram.bits) [ 0x01; 0x12; 0x23; 0x34; 0x45; 0x56; 0x76 ] in
-  let waves, sim =
-    CpuExecutor.create ~rom ~split_ram scope
-    |> Simulator.create ~config:Cyclesim.Config.trace_all
-    |> Hardcaml_waveterm.Waveform.create
-  in
-  let inputs = Cyclesim.inputs sim in
-  let set wire = wire := Bits.vdd in
-  let clear wire = wire := Bits.gnd in
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-  in
-  let step controls =
-    List.iter set controls;
-    cycles 1;
-    List.iter clear controls
-  in
-  let c = inputs.control in
-  let command c = List.iter step c in
-  let _NOP =
-    [
-      [ c._MI; c._CO ] (*                              cycle 1 *);
-      [ c._RO; c._II; c._CE ] (*                       cycle 2 *);
-    ]
-  in
-  let _LDA =
-    _NOP
-    @ [
-        [ c._IO; c._MI ] (*                              cycle 3 *);
-        [ c._RO; c._AI ] (*                              cycle 4 *);
-      ]
-  in
-  let _ADD =
-    _NOP
-    @ [
-        [ c._IO; c._MI ] (*                              cycle 3 *);
-        [ c._RO; c._BI ] (*                              cycle 4 *);
-        [ c._EO; c._AI; c._FI ] (*                       cycle 5 *);
-      ]
-  in
-  let _SUB =
-    _NOP
-    @ [
-        [ c._IO; c._MI ] (*                              cycle 3 *);
-        [ c._RO; c._BI ] (*                              cycle 4 *);
-        [ c._EO; c._AI; c._SU; c._FI ] (*                cycle 5 *);
-      ]
-  in
-  let _STA =
-    _NOP
-    @ [
-        [ c._IO; c._MI ] (*                              cycle 3 *);
-        [ c._AO; c._RI ] (*                              cycle 4 *);
-      ]
-  in
-  let _LDI = _NOP @ [ [ c._IO; c._AI ] ] in
-  let _JMP = _NOP @ [ [ c._IO; c._J ] ] in
-  let _OUT = _NOP @ [ [ c._AO; c._OI ] ] in
-  let rec wait n =
-    let outputs = Cyclesim.outputs sim in
-    let ready = !(outputs.CpuExecutor.O.state.ready) |> Bits.to_int in
-    if ready = 0 then (
-      cycles 1;
-      succ n |> wait)
-    else if n = 0 then 0
-    else n - 1
-  in
-  let start_cycle = wait 0 in
-  command _NOP;
-  command _LDA;
-  command _ADD;
-  command _SUB;
-  command _STA;
-  command _LDI;
-  command _JMP;
-  command _OUT;
-  cycles 2;
-  set inputs.cpu_reset;
-  cycles 4;
-  clear inputs.cpu_reset;
-  command _NOP;
-  command _LDA;
-  Hardcaml_waveterm.Waveform.print ~start_cycle ~display_height:76 ~display_width:100 ~wave_width:0 waves
-
-let cpu_executor_test_rom = cpu_executor_test ~split_ram:true
-let cpu_executor_test_ram = cpu_executor_test ~split_ram:false
 
 module Counter (Max : Util.Integer) = struct
   let bits = Max.value - 1 |> Bits.num_bits_to_represent
