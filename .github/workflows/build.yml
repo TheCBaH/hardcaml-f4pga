@@ -17,6 +17,12 @@ jobs:
     - name: setup
       run: |
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
+    - name: runtest
+      run: |
+        ${{ env.EXEC }} make runtest
+    - name: format
+      run: |
+        ${{ env.EXEC }} make format
     - name: hardcaml
       run: |
         ${{ env.EXEC }} make rtl
