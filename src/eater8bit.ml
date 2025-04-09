@@ -783,67 +783,6 @@ let cpu_config ~rom ~split_ram : (module CpuConfig) =
     let split_ram = split_ram
   end)
 
-module CpuTest (Config : CpuConfig) = struct
-  let scope = Scope.create ~flatten_design:true ()
-
-  module Simulator = Cyclesim.With_interface (Cpu.I) (Cpu.O)
-
-  let rom = List.map (Bits.of_int ~width:Ram.bits) Config.rom
-
-  let _ =
-    List.mapi (fun n v -> Bits.to_int v |> Printf.sprintf "%2u: %02x " n) rom
-    |> Format.printf "[%a]\n%!" Format.(pp_print_list pp_print_string)
-
-  let waves, sim =
-    Cpu.create ~rom ~split_ram:Config.split_ram scope
-    |> Simulator.create ~config:Cyclesim.Config.trace_all
-    |> Hardcaml_waveterm.Waveform.create
-
-  let inputs = Cyclesim.inputs sim
-  let outputs = Cyclesim.outputs sim
-  let read s = Bits.to_int !s
-  let a () = read outputs.internal.a.data
-  let b () = read outputs.internal.b.data
-  let pc () = read outputs.internal.pc.data
-  let output () = read outputs.output.data
-  let zero () = read outputs.flags.zero
-  let carry () = read outputs.flags.carry
-  let set wire = wire := Bits.vdd
-  let clear wire = wire := Bits.vdd
-
-  let cycles n =
-    for _ = 1 to n do
-      Cyclesim.cycle sim
-    done
-
-  let rec wait n =
-    let outputs = Cyclesim.outputs sim in
-    let ready = !(outputs.Cpu.O.ready) |> Bits.to_int in
-    if ready = 0 then (
-      cycles 1;
-      succ n |> wait)
-    else if n = 0 then 0
-    else n - 1
-
-  let start_cycle = wait 0
-  let step () = cycles Isa.max_cycles
-  let _ = set inputs.enable
-end
-
-let cpu_test_waves ~rom ~split_ram =
-  let module Cpu = CpuTest ((val cpu_config ~rom ~split_ram)) in
-  let open Cpu in
-  step ();
-  step ();
-  step ();
-  cycles 3;
-  set inputs.cpu_reset;
-  cycles 1;
-  clear inputs.cpu_reset;
-  step ();
-  Hardcaml_waveterm.Waveform.print ~start_cycle ~signals_width:14 ~display_height:50 ~display_width:110 ~wave_width:1
-    waves
-
 let rom_prepare ~process code =
   let write addr data = List.mapi (fun n a -> if n = addr then data else a) in
   let extend n l =
@@ -852,32 +791,3 @@ let rom_prepare ~process code =
     l @ zeros
   in
   code |> extend Ram.size |> process ~write
-
-let cpu_test_halt =
-  (* Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ]) *)
-  let rom =
-    Isa.(assembler [ lda 14; add 15; out; hlt ])
-    |> rom_prepare ~process:(fun ~write code -> code |> write 14 0xFF |> write 15 0x45)
-  in
-  cpu_test_waves ~split_ram:true ~rom
-
-let cpu_test_state ~rom ~split_ram ~steps =
-  let module Cpu = CpuTest ((val cpu_config ~rom ~split_ram)) in
-  let print n =
-    let carry = if Cpu.carry () != 0 then 'C' else '.' in
-    let zero = if Cpu.zero () != 0 then 'Z' else '.' in
-    Printf.printf "%-3u PC:%02X A:%02X B:%02X OUT:%02X %c%c\n%!" n (Cpu.pc ()) (Cpu.a ()) (Cpu.b ()) (Cpu.output ())
-      zero carry
-  in
-  print 0;
-  for n = 1 to steps do
-    Cpu.step ();
-    print n
-  done
-
-let cpu_test_loop =
-  let rom =
-    Isa.(assembler [ lda 14; add 15; out; jc 5; jmp 1; hlt ])
-    |> rom_prepare ~process:(fun ~write code -> code |> write 14 0x23 |> write 15 0x45)
-  in
-  cpu_test_state ~split_ram:false ~rom ~steps:20
