@@ -12,7 +12,7 @@ jobs:
       packages: write
     steps:
     - name: checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
     - name: image
       uses: ./.github/workflows/actions/devcontainer
       with:
