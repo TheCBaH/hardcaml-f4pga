@@ -36,7 +36,7 @@
         "OPAMROOT": "/opt/opam"
     },
     "postCreateCommand": {
-        "opam": "sudo sh -ceux \"chown -R $(id -u):$(id -g) ${OPAMROOT}/log\"",
+        "opam": "sudo .devcontainer/fix-opam-owner.sh $(id -u) $(id -g)",
         "submodules": "git submodule update --recursive --init"
     },
     "waitFor": "postCreateCommand"
