@@ -1,6 +1,6 @@
 # Devcontainer for hardcaml and F4GPA
 
-[![F4GPA examples](https://github.com/TheCBaH/fpga_example/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/TheCBaH/hardcaml-f4pga/actions/workflows/build.yml)
+[![F4GPA examples](https://github.com/TheCBaH/hardcaml-f4pga/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/TheCBaH/hardcaml-f4pga/actions/workflows/build.yml)
 
 Devcontainer to create development environment for hardcaml that uses F4FPGA toolchain.
 
