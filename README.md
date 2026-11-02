@@ -33,6 +33,9 @@ the pinned Digilent constraints are also installed while building the image.
 The release supports Linux x86_64 and ARM64. CI uses native runners for both
 architectures with OCaml 4.14.3 and 5.4.1; each version/architecture pair has
 its own cached dependency image. Both board designs are built on every leg.
+The OCaml setup uses the shared
+[`ocaml-features` feature](https://github.com/TheCBaH/ocaml-features), as in
+[`ocaml-devcontainer`](https://github.com/TheCBaH/ocaml-devcontainer).
 OCaml 5.4 uses a pinned [Notty compatibility fix](https://github.com/pqwy/notty/pull/58)
 for the formatter API change; OCaml 4.14 uses the released Notty package.
 The default development compiler is OCaml 4.14.3; set `OCAML_VERSION` before
