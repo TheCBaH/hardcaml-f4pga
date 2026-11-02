@@ -23,14 +23,20 @@ constraints. Building a design requires no downloads or device database
 generation. Both packages use one prebuilt die database, with the package
 selected explicitly through nextpnr's native command line.
 The FPGA tools and databases come from the checksummed
-[devcontainer.openxc7 v0.0.1 release](https://github.com/TheCBaH/devcontainer.openxc7/releases/tag/v0.0.1).
+[devcontainer.openxc7 v0.0.2 release](https://github.com/TheCBaH/devcontainer.openxc7/releases/tag/v0.0.2).
 That release validates static binaries and bitstream generation offline on
 Debian and Alpine. The Dockerfile downloads the pinned archive in a separate
 stage and copies only the installed runtime into the OCaml image. It does
 not compile FPGA tools or generate chip databases. OCaml dependencies and
 the pinned Digilent constraints are also installed while building the image.
 
-The initial release supports Linux x86_64. The committed
+The release supports Linux x86_64 and ARM64. CI uses native runners for both
+architectures with OCaml 4.14.3 and 5.4.1; each version/architecture pair has
+its own cached dependency image. Both board designs are built on every leg.
+OCaml 5.4 uses a pinned [Notty compatibility fix](https://github.com/pqwy/notty/pull/58)
+for the formatter API change; OCaml 4.14 uses the released Notty package.
+The default development compiler is OCaml 4.14.3; set `OCAML_VERSION` before
+building the container to select another version. The committed
 `.devcontainer/openxc7.sha256` pins the exact runtime archive; update it
 together with `OPENXC7_VERSION` when upgrading the toolchain.
 

@@ -2,5 +2,5 @@
  (name rtl_test_lib)
  (libraries rtl hardcaml_waveterm)
  (preprocess
-  (pps ppx_jane ppx_expect ppx_deriving_hardcaml))
+  (pps ppx_jane ppx_expect project_hardcaml_ppx))
  (inline_tests))

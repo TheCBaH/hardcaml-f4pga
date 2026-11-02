@@ -1,66 +1,26 @@
 name: build
-
 on:
   push:
   pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
   packages: write
-
 jobs:
-  images:
-    uses: ./.github/workflows/images.yml
-    secrets: inherit
   build:
-    needs: images
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: read
-    steps:
-    - name: checkout
-      uses: actions/checkout@v7
-    - name: authenticate image cache
-      run: |
-        echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-    - name: devcontainer
-      uses: TheCBaH/devcontainer-action/devcontainer@v1
-      id: devcontainer
-      with:
-        cli-version: '0.88.0'
-    - name: setup
-      run: |
-        echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
-    - name: runtest
-      run: |
-        ${{ env.EXEC }} make runtest
-    - name: format
-      run: |
-        ${{ env.EXEC }} make format
-    - name: hardcaml
-      run: |
-        ${{ env.EXEC }} make rtl
-    - name: hardcaml utop
-      run: |
-        ${{ env.EXEC }} sh -ceux "echo '#use \"src/util.ml\";;' | make utop | tee log.utop"
-        grep hierarchical log.utop
-    - name: openXC7 basys3
-      run: |
-        ${{ env.EXEC }} make basys3.design
-    - name: openXC7 arty_35
-      run: |
-        ${{ env.EXEC }} make arty_35.design
-    - name: incremental FPGA build
-      run: |
-        ${{ env.EXEC }} make --question build/basys3/top.bit build/arty_35/top.bit
-    - name: FPGA build artifacts
-      uses: actions/upload-artifact@v7
-      with:
-        name: fpga-designs
-        path: |
-          build/*/top.bit
-          build/*/pnr.log
-          build/*/timing.json
-        if-no-files-found: error
+    strategy:
+      fail-fast: false
+      matrix:
+        ocaml_version: ['4.14.3', '5.4.1']
+        os: [ubuntu-24.04, ubuntu-24.04-arm]
+        include:
+          - os: ubuntu-24.04
+            platform: linux/amd64
+          - os: ubuntu-24.04-arm
+            platform: linux/arm64
+    uses: ./.github/workflows/ci.yml
+    with:
+      os: ${{ matrix.os }}
+      ocaml_version: ${{ matrix.ocaml_version }}
+      platform: ${{ matrix.platform }}
+    secrets: inherit
