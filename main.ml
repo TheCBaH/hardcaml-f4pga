@@ -29,7 +29,7 @@ let simulate_led ?cycles () =
   let simulator circuit =
     if cycles > 100_000 then
       let module Simulator = Hardcaml_verilator.With_interface (Led.LedTop.I) (Led.LedTop.O) in
-      Simulator.create ~clock_names:[ "clock" ] ~config:Cyclesim.Config.trace_all ~verbose:true circuit
+      Simulator.create ~clock_names:[ "clock" ] ~config:Cyclesim.Config.trace_all circuit
     else
       let module Simulator = Cyclesim.With_interface (Led.LedTop.I) (Led.LedTop.O) in
       Simulator.create ~config:Cyclesim.Config.trace_all circuit
