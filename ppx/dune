@@ -1,0 +1,7 @@
+(library
+ (name project_hardcaml_ppx)
+ (kind ppx_rewriter)
+ (libraries
+  (select driver.ml from
+   (ppx_hardcaml -> driver.v017.ml)
+   (ppx_deriving_hardcaml -> driver.v016.ml))))
