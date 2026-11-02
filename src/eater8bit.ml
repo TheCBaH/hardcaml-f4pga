@@ -65,18 +65,16 @@ module Ram = struct
   end
 
   let memory i =
-    let write_port =
-      { Signal.write_clock = i.I.clock; write_address = i.addr; write_enable = i.w_en; write_data = i.w_data }
-    in
-    Signal.memory ~write_port ~read_address:i.I.addr size
+    Signal.memory size
+      ~write_port:{ write_clock = i.I.clock; write_address = i.addr; write_enable = i.w_en; write_data = i.w_data }
+      ~read_address:i.I.addr
 
   let create scope i =
     ignore scope;
     let memory =
-      let write_port =
-        { Signal.write_clock = i.I.clock; write_address = i.addr; write_enable = i.w_en; write_data = i.w_data }
-      in
-      Signal.memory ~write_port ~read_address:i.I.addr size
+      Signal.memory size
+        ~write_port:{ write_clock = i.I.clock; write_address = i.addr; write_enable = i.w_en; write_data = i.w_data }
+        ~read_address:i.I.addr
     in
     { O.data = memory }
 end
