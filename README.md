@@ -3,7 +3,7 @@
 [![FPGA examples](https://github.com/TheCBaH/hardcaml-f4pga/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/TheCBaH/hardcaml-f4pga/actions/workflows/build.yml)
 
 Generate Verilog with Hardcaml and build Artix-7 bitstreams with
-[openXC7](https://github.com/openXC7/toolchain-installer).
+[openXC7](https://github.com/TheCBaH/devcontainer.openxc7).
 
 ## Get started
 * [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://github.com/codespaces/new?hide_repo_select=true&ref=master&repo=628173356)
@@ -22,12 +22,17 @@ database and interconnect delay table for both board packages, and pinned Digile
 constraints. Building a design requires no downloads or device database
 generation. Both packages use one prebuilt die database, with the package
 selected explicitly through nextpnr's native command line.
-The image build also assembles a small test design for both packages.
+The FPGA tools and databases come from the checksummed
+[devcontainer.openxc7 v0.0.1 release](https://github.com/TheCBaH/devcontainer.openxc7/releases/tag/v0.0.1).
+That release validates static binaries and bitstream generation offline on
+Debian and Alpine. The Dockerfile downloads the pinned archive in a separate
+stage and copies only the installed runtime into the OCaml image. It does
+not compile FPGA tools or generate chip databases. OCaml dependencies and
+the pinned Digilent constraints are also installed while building the image.
 
-The Dockerfile pins the upstream installer and board constraints. It builds
-the toolchain components in separate cached layers, before the OCaml
-features, and removes temporary source trees after each installation.
-`JOBS` controls image compilation parallelism (default 4).
+The initial release supports Linux x86_64. The committed
+`.devcontainer/openxc7.sha256` pins the exact runtime archive; update it
+together with `OPENXC7_VERSION` when upgrading the toolchain.
 
 USB access is needed only for programming. Building bitstreams does not
 require the swap helper.
