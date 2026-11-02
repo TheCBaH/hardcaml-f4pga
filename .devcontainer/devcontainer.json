@@ -18,6 +18,7 @@
         },
         "ghcr.io/devcontainers/features/sshd:1": {},
         "./features/ocaml": {
+            "version": "${localEnv:OCAML_VERSION:4.14.3}",
             "packages": "utop hardcaml hardcaml_c hardcaml_circuits hardcaml_verilator hardcaml_waveterm hardcaml_xilinx"
          }
     },

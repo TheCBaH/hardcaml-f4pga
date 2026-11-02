@@ -10,12 +10,36 @@ permissions:
   packages: write
 
 jobs:
+  matrix:
+    runs-on: ubuntu-slim
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+    - name: matrix
+      id: matrix
+      run: |
+        python3 - <<'EOF2'
+        import json, os
+        matrix = []
+        for ver in ["4.14.3", "5.4.1"]:
+            matrix.append({"os": "ubuntu-24.04",     "ocaml_version": ver, "platform": "linux/amd64"})
+            matrix.append({"os": "ubuntu-24.04-arm", "ocaml_version": ver, "platform": "linux/arm64"})
+        with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+            f.write("matrix<<__OUTPUT__\n%s\n__OUTPUT__\n" % json.dumps(matrix))
+        EOF2
   images:
+    needs: matrix
     uses: ./.github/workflows/images.yml
+    with:
+      matrix: ${{ needs.matrix.outputs.matrix }}
     secrets: inherit
   build:
-    needs: images
-    runs-on: ubuntu-24.04
+    needs: [images, matrix]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.matrix.outputs.matrix) }}
     permissions:
       contents: read
       packages: read
@@ -28,8 +52,12 @@ jobs:
     - name: devcontainer
       uses: TheCBaH/devcontainer-action/devcontainer@v1
       id: devcontainer
+      env:
+        OCAML_VERSION: ${{ matrix.ocaml_version }}
       with:
         cli-version: '0.88.0'
+        variant: ${{ matrix.ocaml_version }}
+        platform: ${{ matrix.platform }}
     - name: setup
       run: |
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
@@ -58,7 +86,7 @@ jobs:
     - name: FPGA build artifacts
       uses: actions/upload-artifact@v7
       with:
-        name: fpga-designs
+        name: fpga-designs-${{ matrix.ocaml_version }}-${{ runner.arch }}
         path: |
           build/*/top.bit
           build/*/pnr.log

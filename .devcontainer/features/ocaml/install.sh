@@ -5,7 +5,7 @@ set -x
 echo "Activating feature 'OCaml'"
 PACKAGES=${PACKAGES:-$@}
 SYSTEM_PACKAGES=${SYSTEM_PACKAGES:-}
-OCAML_VERSION=${VERSION:-4.14.1}
+OCAML_VERSION=${VERSION:-4.14.3}
 OPAM_OPTIONS=''
 if [ -n "${OPTIONS:-}" ]; then
     OPAM_OPTIONS="--packages=ocaml-variants.${OCAML_VERSION}+options,${OPTIONS}"
@@ -88,7 +88,7 @@ opam switch create $OCAML_VERSION ${OPAM_OPTIONS}
 BASE_PACKAGES="\
  dune\
  ocaml-lsp-server\
- ocamlformat\
+ ocamlformat.0.29.0\
  ocamlformat-rpc\
 "
 ALL_PACKAGES="${BASE_PACKAGES} ${PACKAGES}"

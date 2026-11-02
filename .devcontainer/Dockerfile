@@ -3,7 +3,7 @@ FROM debian:${VARIANT}-slim AS openxc7
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 ARG TARGETARCH
-ARG OPENXC7_VERSION=v0.0.1
+ARG OPENXC7_VERSION=v0.0.2
 COPY openxc7.sha256 /tmp/openxc7.sha256
 RUN set -eu; \
     case "$TARGETARCH" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; *) exit 1 ;; esac; \

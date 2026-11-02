@@ -1,18 +1,21 @@
 name: images
 on:
   workflow_call:
-    outputs:
-      image:
-        value: ${{ jobs.devcontainer.outputs.image }}
+    inputs:
+      matrix:
+        type: string
+        required: true
 permissions:
   contents: read
   packages: write
 jobs:
   devcontainer:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(inputs.matrix) }}
     timeout-minutes: 120
-    outputs:
-      image: ${{ steps.image.outputs.image }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -21,16 +24,14 @@ jobs:
       - name: Development container
         id: container
         uses: TheCBaH/devcontainer-action/devcontainer@v1
+        env:
+          OCAML_VERSION: ${{ matrix.ocaml_version }}
         with:
           cli-version: '0.88.0'
+          variant: ${{ matrix.ocaml_version }}
+          platform: ${{ matrix.platform }}
           post-create: 'false'
           username: ${{ github.event_name != 'pull_request' && github.actor || '' }}
           password: ${{ github.event_name != 'pull_request' && secrets.GITHUB_TOKEN || '' }}
       - name: Check cached build dependencies
         run: ${{ steps.container.outputs.exec }} bash -c 'opam exec -- ocamlc -version; yosys -V; test -s /opt/openxc7/share/chipdb/xc7a50t.delay'
-      - name: Dependency image reference
-        id: image
-        run: |
-          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
-          tag=$(echo "$GITHUB_REF_NAME" | tr '[:upper:].' '[:lower:]_')
-          echo "image=ghcr.io/$repo/devcontainer-amd64:$tag" >> "$GITHUB_OUTPUT"
