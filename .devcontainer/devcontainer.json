@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json.
 {
     "name": "hardcaml-f4pga",
-    "runArgs": ["--init", "--privileged"], // to enable swapon command
+    "runArgs": ["--init", "--privileged"], // USB access for programming
     "mounts": [
         "source=/dev/,target=/dev/,type=bind,consistency=cached"
     ],
@@ -16,7 +16,7 @@
             "userGid": "1000",
             "upgradePackages": "false"
         },
-        "./features/f4fpga": { },
+        "ghcr.io/devcontainers/features/sshd:1": {},
         "./features/ocaml": {
             "packages": "utop hardcaml hardcaml_c hardcaml_circuits hardcaml_verilator hardcaml_waveterm hardcaml_xilinx"
          }
@@ -30,6 +30,9 @@
         }
     },
     "remoteUser": "vscode",
+    "containerEnv": {
+        "OPAMROOT": "/opt/opam"
+    },
     "postCreateCommand": {
         "opam": "sudo sh -ceux \"chown -R $(id -u):$(id -g) ${OPAMROOT}/log\"",
         "submodules": "git submodule update --recursive --init"
