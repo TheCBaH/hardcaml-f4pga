@@ -1,0 +1,79 @@
+name: ci
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      ocaml_version:
+        type: string
+        required: true
+      platform:
+        type: string
+        required: true
+permissions:
+  contents: read
+  packages: write
+jobs:
+  images:
+    uses: ./.github/workflows/images.yml
+    with:
+      os: ${{ inputs.os }}
+      ocaml_version: ${{ inputs.ocaml_version }}
+      platform: ${{ inputs.platform }}
+    secrets: inherit
+  build:
+    needs: images
+    runs-on: ${{ inputs.os }}
+    permissions:
+      contents: read
+      packages: read
+    steps:
+    - name: checkout
+      uses: actions/checkout@v7
+    - name: authenticate image cache
+      run: |
+        echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+    - name: devcontainer
+      uses: TheCBaH/devcontainer-action/devcontainer@v1
+      id: devcontainer
+      env:
+        OCAML_VERSION: ${{ inputs.ocaml_version }}
+      with:
+        cli-version: '0.88.0'
+        variant: ${{ inputs.ocaml_version }}
+        platform: ${{ inputs.platform }}
+    - name: setup
+      run: |
+        echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
+    - name: runtest
+      run: |
+        ${{ env.EXEC }} make runtest
+    - name: format
+      run: |
+        ${{ env.EXEC }} make format
+    - name: hardcaml
+      run: |
+        ${{ env.EXEC }} make rtl
+    - name: hardcaml utop
+      run: |
+        ${{ env.EXEC }} sh -ceux "echo '#use \"src/util.ml\";;' | make utop | tee log.utop"
+        grep hierarchical log.utop
+    - name: openXC7 basys3
+      run: |
+        ${{ env.EXEC }} make basys3.design
+    - name: openXC7 arty_35
+      run: |
+        ${{ env.EXEC }} make arty_35.design
+    - name: incremental FPGA build
+      run: |
+        ${{ env.EXEC }} make --question build/basys3/top.bit build/arty_35/top.bit
+    - name: FPGA build artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: fpga-designs-${{ inputs.ocaml_version }}-${{ runner.arch }}
+        path: |
+          build/*/top.bit
+          build/*/pnr.log
+          build/*/timing.json
+        if-no-files-found: error
