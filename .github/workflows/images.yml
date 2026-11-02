@@ -21,6 +21,19 @@ jobs:
         with:
           submodules: false
           persist-credentials: false
+      - name: Authenticate image cache
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+      - name: Seed promoted image cache
+        if: github.ref_name == github.event.repository.default_branch
+        run: |
+          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          platform='${{ matrix.platform }}'
+          image="ghcr.io/$repo/devcontainer-${{ matrix.ocaml_version }}-${platform#linux/}"
+          tag=$(echo "$GITHUB_REF_NAME" | tr '[:upper:].' '[:lower:]_')
+          if ! docker buildx imagetools inspect "$image:$tag" >/dev/null 2>&1 \
+            && docker buildx imagetools inspect "$image:devel" >/dev/null 2>&1; then
+            docker buildx imagetools create --prefer-index=false -t "$image:$tag" "$image:devel"
+          fi
       - name: Development container
         id: container
         uses: TheCBaH/devcontainer-action/devcontainer@v1
@@ -34,4 +47,4 @@ jobs:
           username: ${{ github.event_name != 'pull_request' && github.actor || '' }}
           password: ${{ github.event_name != 'pull_request' && secrets.GITHUB_TOKEN || '' }}
       - name: Check cached build dependencies
-        run: ${{ steps.container.outputs.exec }} bash -c 'opam exec -- ocamlc -version; yosys -V; test -s /opt/openxc7/share/chipdb/xc7a50t.delay'
+        run: ${{ steps.container.outputs.exec }} bash -ec 'test "$(opam exec -- ocamlc -version)" = "${{ matrix.ocaml_version }}"; yosys -V; test -s /opt/openxc7/share/chipdb/xc7a50t.delay'
