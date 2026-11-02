@@ -18,4 +18,4 @@
   hardcaml_waveterm
   hardcaml_waveterm.interactive)
  (preprocess
-  (pps ppx_jane ppx_deriving_hardcaml)))
+  (pps ppx_sexp_conv ppx_deriving_hardcaml)))

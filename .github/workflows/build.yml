@@ -8,12 +8,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
     - name: checkout
       uses: actions/checkout@v4
+    - name: authenticate image cache
+      run: |
+        echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
     - name: devcontainer
       uses: TheCBaH/devcontainer-action/devcontainer@v1
       id: devcontainer
+      with:
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: setup
       run: |
         echo 'EXEC=${{ steps.devcontainer.outputs.exec }}' >> $GITHUB_ENV
@@ -30,9 +38,21 @@ jobs:
       run: |
         ${{ env.EXEC }} sh -ceux "echo '#use \"src/util.ml\";;' | make utop | tee log.utop"
         grep hierarchical log.utop
-    - name: f4pga basys3
+    - name: openXC7 basys3
       run: |
         ${{ env.EXEC }} make basys3.design
-    - name: f4pga art_35
+    - name: openXC7 arty_35
       run: |
         ${{ env.EXEC }} make arty_35.design
+    - name: incremental FPGA build
+      run: |
+        ${{ env.EXEC }} make --question build/basys3/top.bit build/arty_35/top.bit
+    - name: FPGA build artifacts
+      uses: actions/upload-artifact@v7
+      with:
+        name: fpga-designs
+        path: |
+          build/*/top.bit
+          build/*/pnr.log
+          build/*/timing.json
+        if-no-files-found: error
