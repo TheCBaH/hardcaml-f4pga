@@ -32,8 +32,7 @@ jobs:
           platform='${{ inputs.platform }}'
           image="ghcr.io/$repo/devcontainer-${{ inputs.ocaml_version }}-${platform#linux/}"
           tag=$(echo "$GITHUB_REF_NAME" | tr '[:upper:].' '[:lower:]_')
-          if ! docker buildx imagetools inspect "$image:$tag" >/dev/null 2>&1 \
-            && docker buildx imagetools inspect "$image:devel" >/dev/null 2>&1; then
+          if docker buildx imagetools inspect "$image:devel" >/dev/null 2>&1; then
             docker buildx imagetools create --prefer-index=false -t "$image:$tag" "$image:devel"
           fi
       - name: Development container

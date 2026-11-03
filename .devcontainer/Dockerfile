@@ -1,19 +1,20 @@
-ARG VARIANT=12
+ARG VARIANT=13
 FROM debian:${VARIANT}-slim AS openxc7
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
     && rm -rf /var/lib/apt/lists/*
 ARG TARGETARCH
-ARG OPENXC7_VERSION=v0.0.2
+ARG OPENXC7_VERSION=v0.0.3
 COPY openxc7.sha256 /tmp/openxc7.sha256
 RUN set -eu; \
     case "$TARGETARCH" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; *) exit 1 ;; esac; \
-    archive="openxc7-linux-$arch-musl.tar.gz"; \
-    grep -F "  $archive" /tmp/openxc7.sha256 > /tmp/checksums; \
-    cd /tmp; \
-    curl -fLsS --retry 3 "https://github.com/TheCBaH/devcontainer.openxc7/releases/download/$OPENXC7_VERSION/$archive" -o "$archive"; \
-    sha256sum -c /tmp/checksums; \
     mkdir -p /opt/openxc7; \
-    tar -xzf "$archive" -C /opt/openxc7
+    cd /tmp; \
+    for archive in "openxc7-linux-$arch-musl.tar.xz" openxc7-data-xc7a50t.tar.xz; do \
+        grep -F "  $archive" /tmp/openxc7.sha256 > /tmp/checksums; \
+        curl -fLsS --retry 3 "https://github.com/TheCBaH/devcontainer.openxc7/releases/download/$OPENXC7_VERSION/$archive" -o "$archive"; \
+        sha256sum -c /tmp/checksums; \
+        tar -xJf "$archive" -C /opt/openxc7; \
+    done
 
 FROM debian:${VARIANT}
 RUN set -eux;\

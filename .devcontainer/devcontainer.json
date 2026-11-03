@@ -36,8 +36,7 @@
         "OPAMROOT": "/opt/opam"
     },
     "postCreateCommand": {
-        "opam": "sudo .devcontainer/fix-opam-owner.sh $(id -u) $(id -g)",
-        "submodules": "git submodule update --recursive --init"
+        "opam": "sudo .devcontainer/fix-opam-owner.sh $(id -u) $(id -g)"
     },
     "waitFor": "postCreateCommand"
 }

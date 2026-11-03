@@ -23,10 +23,10 @@ constraints. Building a design requires no downloads or device database
 generation. Both packages use one prebuilt die database, with the package
 selected explicitly through nextpnr's native command line.
 The FPGA tools and databases come from the checksummed
-[devcontainer.openxc7 v0.0.2 release](https://github.com/TheCBaH/devcontainer.openxc7/releases/tag/v0.0.2).
+[devcontainer.openxc7 v0.0.3 release](https://github.com/TheCBaH/devcontainer.openxc7/releases/tag/v0.0.3).
 That release validates static binaries and bitstream generation offline on
-Debian and Alpine. The Dockerfile downloads the pinned archive in a separate
-stage and copies only the installed runtime into the OCaml image. It does
+Debian and Alpine. The Dockerfile downloads the native xz tool archive and
+shared xc7a50t data in a separate stage and copies only the installed runtime into the OCaml image. It does
 not compile FPGA tools or generate chip databases. OCaml dependencies and
 the pinned Digilent constraints are also installed while building the image.
 
@@ -40,8 +40,8 @@ OCaml 5.4 uses a pinned [Notty compatibility fix](https://github.com/pqwy/notty/
 for the formatter API change; OCaml 4.14 uses the released Notty package.
 The default development compiler is OCaml 4.14.3; set `OCAML_VERSION` before
 building the container to select another version. The committed
-`.devcontainer/openxc7.sha256` pins the exact runtime archive; update it
-together with `OPENXC7_VERSION` when upgrading the toolchain.
+`.devcontainer/openxc7.sha256` pins both native tool archives and the shared
+device data; update it together with `OPENXC7_VERSION` when upgrading the toolchain.
 
 USB access is needed only for programming. Building bitstreams does not
 require the swap helper.
