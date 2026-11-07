@@ -17,10 +17,11 @@
             "upgradePackages": "false"
         },
         "ghcr.io/devcontainers/features/sshd:1": {},
-        "./features/ocaml": {
+        "ghcr.io/thecbah/ocaml-features/ocaml:1": {
             "version": "${localEnv:OCAML_VERSION:4.14.3}",
-            "packages": "utop hardcaml hardcaml_c hardcaml_circuits hardcaml_verilator hardcaml_waveterm hardcaml_xilinx"
-         }
+            "packages": "utop ocamlformat#0.29.0 hardcaml hardcaml_c hardcaml_circuits hardcaml_verilator hardcaml_waveterm hardcaml_xilinx",
+            "ocaml-version-overrides": "notty.0.2.3#git+https://github.com/Octachron/notty.git#a4d62f467e257196a5192da2184bd021dfd948b7@5.4.*"
+        }
     },
     "customizations": {
         "vscode": {
@@ -35,8 +36,7 @@
         "OPAMROOT": "/opt/opam"
     },
     "postCreateCommand": {
-        "opam": "sudo sh -ceux \"chown -R $(id -u):$(id -g) ${OPAMROOT}/log\"",
-        "submodules": "git submodule update --recursive --init"
+        "opam": "sudo .devcontainer/fix-opam-owner.sh $(id -u) $(id -g)"
     },
     "waitFor": "postCreateCommand"
 }
