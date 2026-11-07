@@ -3,4 +3,4 @@
  (wrapped false)
  (libraries hardcaml hardcaml_waveterm)
  (preprocess
-  (pps ppx_jane ppx_deriving_hardcaml)))
+  (pps ppx_jane project_hardcaml_ppx)))

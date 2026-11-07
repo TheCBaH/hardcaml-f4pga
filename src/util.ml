@@ -94,7 +94,7 @@ end
 
 let trigger_gen ?divider ?target ?(exact = true) ?enable ?clock_freq ~reset ~clock scope =
   let enable = Option.value ~default:Signal.vdd enable in
-  let always_enable = Signal.is_const enable && Bits.equal Bits.vdd (Signal.const_value enable) in
+  let always_enable = Signal.is_vdd enable in
   let divider =
     match (always_enable, target, divider, clock_freq) with
     | _, None, Some divider, _ -> divider

@@ -1,19 +1,51 @@
 name: images
-
 on:
-  push:
-    branches:
-      - '**'
-
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      ocaml_version:
+        type: string
+        required: true
+      platform:
+        type: string
+        required: true
+permissions:
+  contents: read
+  packages: write
 jobs:
   devcontainer:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 120
     steps:
-    - name: checkout
-      uses: actions/checkout@v4
-    - name: image
-      uses: TheCBaH/devcontainer-action/devcontainer@v1
-      with:
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v7
+        with:
+          submodules: false
+          persist-credentials: false
+      - name: Authenticate image cache
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+      - name: Seed promoted image cache
+        if: github.ref_name == github.event.repository.default_branch
+        run: |
+          repo=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+          platform='${{ inputs.platform }}'
+          image="ghcr.io/$repo/devcontainer-${{ inputs.ocaml_version }}-${platform#linux/}"
+          tag=$(echo "$GITHUB_REF_NAME" | tr '[:upper:].' '[:lower:]_')
+          if docker buildx imagetools inspect "$image:devel" >/dev/null 2>&1; then
+            docker buildx imagetools create --prefer-index=false -t "$image:$tag" "$image:devel"
+          fi
+      - name: Development container
+        id: container
+        uses: TheCBaH/devcontainer-action/devcontainer@v1
+        env:
+          OCAML_VERSION: ${{ inputs.ocaml_version }}
+        with:
+          cli-version: '0.88.0'
+          variant: ${{ inputs.ocaml_version }}
+          platform: ${{ inputs.platform }}
+          post-create: 'false'
+          username: ${{ github.event_name != 'pull_request' && github.actor || '' }}
+          password: ${{ github.event_name != 'pull_request' && secrets.GITHUB_TOKEN || '' }}
+      - name: Check cached build dependencies
+        run: ${{ steps.container.outputs.exec }} bash -ec 'test "$(opam exec -- ocamlc -version)" = "${{ inputs.ocaml_version }}"; yosys -V; test -s /opt/openxc7/share/chipdb/xc7a50t.delay'

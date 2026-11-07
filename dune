@@ -7,7 +7,7 @@
   hardcaml_waveterm
   hardcaml_waveterm.interactive)
  (preprocess
-  (pps ppx_compare ppx_deriving_hardcaml)))
+  (pps ppx_compare project_hardcaml_ppx)))
 
 (toplevel
  (name hardcaml)
@@ -18,4 +18,4 @@
   hardcaml_waveterm
   hardcaml_waveterm.interactive)
  (preprocess
-  (pps ppx_sexp_conv ppx_deriving_hardcaml)))
+  (pps ppx_sexp_conv project_hardcaml_ppx)))

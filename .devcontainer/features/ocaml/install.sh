@@ -5,7 +5,7 @@ set -x
 echo "Activating feature 'OCaml'"
 PACKAGES=${PACKAGES:-$@}
 SYSTEM_PACKAGES=${SYSTEM_PACKAGES:-}
-OCAML_VERSION=${VERSION:-4.14.1}
+OCAML_VERSION=${VERSION:-4.14.3}
 OPAM_OPTIONS=''
 if [ -n "${OPTIONS:-}" ]; then
     OPAM_OPTIONS="--packages=ocaml-variants.${OCAML_VERSION}+options,${OPTIONS}"
@@ -85,10 +85,17 @@ check_packages\
 opam init --no-setup --disable-sandboxing --bare
 eval $(opam env)
 opam switch create $OCAML_VERSION ${OPAM_OPTIONS}
+case "$OCAML_VERSION" in
+    5.4.*)
+        # Notty 0.2.3 predates Format.out_width (pqwy/notty#58).
+        opam pin add --no-action -y notty.0.2.3 \
+          git+https://github.com/Octachron/notty.git#a4d62f467e257196a5192da2184bd021dfd948b7
+        ;;
+esac
 BASE_PACKAGES="\
  dune\
  ocaml-lsp-server\
- ocamlformat\
+ ocamlformat.0.29.0\
  ocamlformat-rpc\
 "
 ALL_PACKAGES="${BASE_PACKAGES} ${PACKAGES}"
